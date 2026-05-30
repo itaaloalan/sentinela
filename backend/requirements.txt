@@ -1,0 +1,16 @@
+# Core (skeleton roda só com isto)
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic-settings>=2.6
+PyJWT>=2.9
+httpx>=0.27
+python-multipart>=0.0.12
+
+# --- extras (descomentar quando implementar as fases) ---
+# onvif-zeep>=0.2.12        # PTZ via ONVIF (Fase 3)
+# paho-mqtt>=2.1            # se optar por eventos via MQTT
+# pillow>=11.0              # manipular/cropar snapshots
+#
+# IA (Fase 4) — pesados; instale no serviço ai/ separado:
+# ultralytics>=8.3          # YOLO classificação (AGPL-3.0)
+# opencv-python-headless

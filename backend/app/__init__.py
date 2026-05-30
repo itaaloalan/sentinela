@@ -1,0 +1,1 @@
+"""Sentinela backend (FastAPI)."""

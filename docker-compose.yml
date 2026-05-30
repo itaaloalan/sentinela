@@ -1,0 +1,46 @@
+# Sentinela — orquestração dev/prod
+# No dev, normalmente só o go2rtc roda via Docker; backend e frontend rodam direto
+# (runners do claude-workspaces). Em prod, descomente backend/frontend/ai.
+
+services:
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: sentinela-go2rtc
+    restart: unless-stopped
+    network_mode: host          # facilita descoberta ONVIF/RTSP na LAN
+    environment:
+      # preenchidas pelo .env (ver .env.example)
+      - CAM_ICSEE_IP=${CAM_ICSEE_IP}
+      - CAM_ICSEE_PASS=${CAM_ICSEE_PASS}
+      - CAM_YOOSEE_IP=${CAM_YOOSEE_IP}
+      - CAM_YOOSEE_PASS=${CAM_YOOSEE_PASS}
+    volumes:
+      - ./go2rtc:/config
+
+  # --- descomente para subir tudo via Docker (prod) ---
+  # backend:
+  #   build: ./backend
+  #   container_name: sentinela-backend
+  #   restart: unless-stopped
+  #   env_file: .env
+  #   ports: ["8000:8000"]
+  #   volumes:
+  #     - ./backend/data:/app/data
+  #     - ./ai/data:/app/ai-data
+  #   depends_on: [go2rtc]
+
+  # ai:
+  #   build: ./ai
+  #   container_name: sentinela-ai
+  #   restart: unless-stopped
+  #   env_file: .env
+  #   volumes:
+  #     - ./ai/data:/app/data
+  #   depends_on: [go2rtc, backend]
+
+  # frontend:
+  #   build: ./frontend
+  #   container_name: sentinela-frontend
+  #   restart: unless-stopped
+  #   ports: ["5173:80"]
+  #   depends_on: [backend]

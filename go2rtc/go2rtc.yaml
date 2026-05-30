@@ -1,0 +1,30 @@
+# go2rtc — engine de streaming do Sentinela
+# Docs: https://github.com/AlexxIT/go2rtc
+#
+# ⚠️ PREENCHER com as câmeras reais APÓS a PoC (ver docs/CAMERA-ACCESS.md).
+# Use variáveis de ambiente para não commitar senhas: ${CAM_ICSEE_PASS} etc.
+
+api:
+  listen: ":1984"           # API/UI — NÃO expor à internet; o backend faz proxy autenticado
+
+rtsp:
+  listen: ":8554"           # RTSP re-publicado (consumido pelo serviço de IA)
+
+webrtc:
+  listen: ":8555"           # WebRTC (TCP) — usado pelo <video-stream> no frontend
+
+streams:
+  # --- iCSee (Xiongmai / Sofia / DVRIP) — caminho robusto via dvrip:// ---
+  # Funciona mesmo com RTSP desativado. subtype 0=main, 1=sub.
+  # Se o codec for H.265 e o browser reclamar, troque por:
+  #   ffmpeg:dvrip://admin:${CAM_ICSEE_PASS}@${CAM_ICSEE_IP}:34567?channel=0&subtype=0#video=h264
+  icsee:
+    - dvrip://admin:${CAM_ICSEE_PASS}@${CAM_ICSEE_IP}:34567?channel=0&subtype=0
+
+  # --- Yoosee (Gwell / Anyka) — RTSP após habilitar no app YooSee ---
+  # Teste /onvif2 (sub, mais confiável) e /onvif1 (main). Ver docs/CAMERA-ACCESS.md.
+  # Esta é a câmera do PORTÃO — alvo do alerta de IA.
+  yoosee_portao:
+    - rtsp://admin:${CAM_YOOSEE_PASS}@${CAM_YOOSEE_IP}:554/onvif2
+
+# Dica: defina o I-frame interval da câmera = framerate para start mais rápido do WebRTC.

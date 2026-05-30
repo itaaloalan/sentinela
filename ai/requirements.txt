@@ -1,0 +1,6 @@
+# Serviço de IA — pesado, isolado do backend.
+# ⚠️ Ultralytics é AGPL-3.0 (ok para uso pessoal self-hosted).
+ultralytics>=8.3
+opencv-python-headless>=4.10
+pillow>=11.0
+httpx>=0.27

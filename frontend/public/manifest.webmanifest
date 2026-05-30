@@ -1,0 +1,12 @@
+{
+  "name": "Sentinela",
+  "short_name": "Sentinela",
+  "description": "Câmeras + alerta treinável de portão aberto",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    { "src": "/sentinela.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
