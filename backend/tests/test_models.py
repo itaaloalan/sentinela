@@ -199,9 +199,62 @@ def test_update_model_rejects_out_of_range_debounce(client, auth_headers):
     assert resp.status_code == 422  # Field(le=3600)
 
 
+def test_update_model_renames_classes_and_moves_frames(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    _capture(client, auth_headers, mid, "aberto")  # frame na classe antiga
+    resp = client.put(
+        f"/api/models/{mid}",
+        json={"classes": ["seco", "agua"]},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["classes"] == ["seco", "agua"]
+    assert body["alert_label"] == "seco"  # alert_label antigo saiu → 1ª nova
+    # o frame de 'aberto' migrou posicionalmente p/ 'seco'
+    assert body["frames"]["seco"] == 1
+
+
+def test_update_model_classes_keeps_unchanged_label(client, auth_headers):
+    # renomeia só a 2ª classe; a 1ª ('aberto') e o alert_label permanecem
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    resp = client.put(
+        f"/api/models/{mid}",
+        json={"classes": ["aberto", "parcial"]},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["classes"] == ["aberto", "parcial"]
+    assert body["alert_label"] == "aberto"  # ainda válido → não reseta
+
+
+def test_update_model_rejects_fewer_than_two_classes(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    resp = client.put(f"/api/models/{mid}", json={"classes": ["só_uma"]}, headers=auth_headers)
+    assert resp.status_code == 400
+
+
 def test_update_model_not_found(client, auth_headers):
     resp = client.put("/api/models/9999", json={"name": "x"}, headers=auth_headers)
     assert resp.status_code == 404
+
+
+def test_delete_model_removes_record_and_frames(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    _capture(client, auth_headers, mid, "aberto")
+    resp = client.delete(f"/api/models/{mid}", headers=auth_headers)
+    assert resp.status_code == 204
+    assert client.get(f"/api/models/{mid}/status", headers=auth_headers).status_code == 404
+    assert all(m["id"] != mid for m in client.get("/api/models", headers=auth_headers).json())
+
+
+def test_delete_model_not_found(client, auth_headers):
+    assert client.delete("/api/models/9999", headers=auth_headers).status_code == 404
 
 
 def test_update_model_empty_patch_keeps_values(client, auth_headers):

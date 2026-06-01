@@ -6,6 +6,7 @@ import {
   createCamera,
   createModel,
   deleteCamera,
+  deleteModel,
   deleteModelFrame,
   discoverCameras,
   eventSnapshotUrl,
@@ -241,6 +242,15 @@ describe("AI model API", () => {
     expect(url).toBe("/api/models/1");
     expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toEqual({ name: "novo", debounce_seconds: 60 });
+  });
+
+  it("deleteModel DELETEs the model", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ ok: true, text: "" }));
+    await deleteModel(5);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/models/5");
+    expect(init.method).toBe("DELETE");
   });
 
   it("captureFrame posts with the label query", async () => {

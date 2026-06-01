@@ -18,21 +18,28 @@ _TRAIN_SPLIT = 0.8
 _MIN_PER_CLASS = 2  # 1 p/ treino + 1 p/ validação, no mínimo
 
 
-def validate_frames(model_id: int, classes: list[str]) -> None:
-    """Garante material suficiente antes de chamar o YOLO.
+def ready_classes(model_id: int, classes: list[str]) -> list[str]:
+    """Classes que já têm frames suficientes (treino+validação) para entrar no treino."""
+    return [c for c in classes if frames_mod.count_frames(model_id, c) >= _MIN_PER_CLASS]
 
-    Sem isso o Ultralytics falha com mensagens crípticas (ex.: 'val: None' →
-    'expected str, bytes or os.PathLike object, not NoneType'). Aqui o erro
-    vira texto acionável que aparece no status do modelo na UI.
+
+def validate_frames(model_id: int, classes: list[str]) -> list[str]:
+    """Garante material suficiente e devolve as classes prontas p/ treinar.
+
+    Treina com o subconjunto de classes que já têm frames (≥2). Assim dá pra ter
+    um modelo com classes ainda vazias (ex.: 'agua' sem água acumulada ainda) e
+    treinar nas que estão prontas — mas são necessárias ≥2, senão o classificador
+    não tem o que distinguir. Erro vira texto acionável no status na UI.
     """
-    counts = {label: frames_mod.count_frames(model_id, label) for label in classes}
-    faltando = [f"'{label}' ({n})" for label, n in counts.items() if n < _MIN_PER_CLASS]
-    if faltando:
+    ready = ready_classes(model_id, classes)
+    if len(ready) < 2:
+        counts = {c: frames_mod.count_frames(model_id, c) for c in classes}
+        atual = ", ".join(f"'{c}' ({n})" for c, n in counts.items())
         raise ValueError(
-            "frames insuficientes — capture pelo menos "
-            f"{_MIN_PER_CLASS} por classe (treino+validação). Faltando: "
-            + ", ".join(faltando)
+            f"preciso de pelo menos 2 classes com {_MIN_PER_CLASS}+ frames cada "
+            f"(a IA precisa ver os dois estados pra distinguir). Hoje: {atual}"
         )
+    return ready
 
 
 def build_dataset(model_id: int, classes: list[str]) -> Path:
@@ -77,8 +84,8 @@ def run_training(model_id: int, epochs: int = 30) -> None:
         rec = session.get(AIModel, model_id)
         classes = rec.classes_csv.split(",")
     try:
-        validate_frames(model_id, classes)
-        dataset = build_dataset(model_id, classes)
+        ready = validate_frames(model_id, classes)
+        dataset = build_dataset(model_id, ready)  # só as classes prontas
         accuracy: float | None = _train_yolo(dataset, epochs)
         status = "pronto"
     except Exception as exc:

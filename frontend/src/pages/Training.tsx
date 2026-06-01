@@ -4,6 +4,7 @@ import {
   activateModel,
   captureFrame,
   createModel,
+  deleteModel,
   deleteModelFrame,
   listCameras,
   listModels,
@@ -38,6 +39,7 @@ export default function Training() {
   const [newClasses, setNewClasses] = useState("aberto, fechado");
   const [crop, setCrop] = useState({ x1: "0", y1: "0", x2: "0", y2: "0" });
   const [nameEdit, setNameEdit] = useState("");
+  const [classesEdit, setClassesEdit] = useState("");
   const [alertLabel, setAlertLabel] = useState("");
   const [debounce, setDebounce] = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -94,6 +96,7 @@ export default function Training() {
       y2: String(model.crop?.y2 ?? 0),
     });
     setNameEdit(model.name);
+    setClassesEdit(model.classes.join(", "));
     setAlertLabel(model.alert_label);
     setDebounce(String(model.debounce_seconds));
     setTestResult(null);
@@ -126,6 +129,26 @@ export default function Training() {
         alert_label: alertLabel,
         debounce_seconds: Number(debounce),
       });
+      await refresh();
+    });
+  }
+
+  function onSaveClasses() {
+    return run(async () => {
+      const classes = classesEdit
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean);
+      const updated = await updateModel(selected!.id, { classes });
+      await refresh();
+      onSelect(updated);
+    });
+  }
+
+  function onDelete() {
+    return run(async () => {
+      await deleteModel(selected!.id);
+      setSelectedId(null);
       await refresh();
     });
   }
@@ -245,11 +268,38 @@ export default function Training() {
               >
                 Renomear
               </AsyncButton>
+              <span className="spacer" />
+              <AsyncButton className="ghost danger" onClick={onDelete}>
+                🗑 Excluir modelo
+              </AsyncButton>
+            </div>
+
+            <div className="cam-form">
+              <input
+                aria-label="classes do modelo"
+                value={classesEdit}
+                onChange={(e) => setClassesEdit(e.target.value)}
+              />
+              <AsyncButton
+                className="ghost"
+                disabled={classesEdit.trim() === selected.classes.join(", ")}
+                onClick={onSaveClasses}
+              >
+                Salvar classes
+              </AsyncButton>
+              <span className="hint">
+                rótulos que a IA aprende (ex.: <code>seco, agua</code>). Renomear move os
+                frames já capturados.
+              </span>
             </div>
             {previewName && (
               <div className="cam-card">
-                <div className="video">
-                  <CameraVideo id={selected.camera_id} name={previewName} />
+                <div className="video contain">
+                  <CameraVideo
+                    key={selected.camera_id}
+                    id={selected.camera_id}
+                    name={previewName}
+                  />
                 </div>
               </div>
             )}

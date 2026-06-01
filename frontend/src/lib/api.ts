@@ -193,6 +193,10 @@ export async function updateModel(id: number, patch: ModelPatch): Promise<AIMode
   ).json();
 }
 
+export async function deleteModel(id: number): Promise<void> {
+  await req(`/api/models/${id}`, { method: "DELETE" });
+}
+
 export async function captureFrame(id: number, label: string): Promise<{ frames: number }> {
   return (
     await req(`/api/models/${id}/capture?label=${encodeURIComponent(label)}`, {

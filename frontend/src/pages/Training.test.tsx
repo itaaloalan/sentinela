@@ -22,6 +22,7 @@ const api = {
   testModel: vi.fn(),
   activateModel: vi.fn(),
   updateModel: vi.fn(),
+  deleteModel: vi.fn(),
 };
 vi.mock("../lib/api", () => ({
   auth: {},
@@ -36,6 +37,7 @@ vi.mock("../lib/api", () => ({
   testModel: (...a: unknown[]) => api.testModel(...a),
   activateModel: (...a: unknown[]) => api.activateModel(...a),
   updateModel: (...a: unknown[]) => api.updateModel(...a),
+  deleteModel: (...a: unknown[]) => api.deleteModel(...a),
   modelFrameUrl: (id: number, label: string, f: string) =>
     `/api/models/${id}/frames/${label}/${f}?token=`,
 }));
@@ -69,6 +71,7 @@ beforeEach(() => {
   api.testModel.mockReset().mockResolvedValue({ label: "aberto", confidence: 0.87 });
   api.activateModel.mockReset().mockResolvedValue({ active: false });
   api.updateModel.mockReset().mockResolvedValue(M1);
+  api.deleteModel.mockReset().mockResolvedValue(undefined);
 });
 
 describe("Training", () => {
@@ -138,6 +141,29 @@ describe("Training", () => {
     await waitFor(() =>
       expect(api.updateModel).toHaveBeenCalledWith(1, { name: "portão da frente" }),
     );
+  });
+
+  it("edits the classes/labels of a model", async () => {
+    const renamed = { ...M1, classes: ["seco", "agua"], alert_label: "seco" };
+    api.updateModel.mockResolvedValue(renamed);
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    const input = await screen.findByLabelText("classes do modelo");
+    await user.clear(input);
+    await user.type(input, "seco, agua");
+    await user.click(screen.getByRole("button", { name: "Salvar classes" }));
+    await waitFor(() =>
+      expect(api.updateModel).toHaveBeenCalledWith(1, { classes: ["seco", "agua"] }),
+    );
+  });
+
+  it("deletes a model and clears the selection", async () => {
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    await user.click(await screen.findByRole("button", { name: /Excluir modelo/ }));
+    await waitFor(() => expect(api.deleteModel).toHaveBeenCalledWith(1));
   });
 
   it("saves the alert config (label + debounce)", async () => {

@@ -31,6 +31,7 @@ class ModelIn(BaseModel):
 
 class ModelPatch(BaseModel):
     name: str | None = None
+    classes: list[str] | None = None
     alert_label: str | None = None
     debounce_seconds: int | None = Field(default=None, ge=0, le=3600)
 
@@ -175,6 +176,18 @@ def update_model(
         if not name:
             raise HTTPException(400, "nome não pode ser vazio")
         rec.name = name
+    if patch.classes is not None:
+        new = [c.strip() for c in patch.classes if c.strip()]
+        if len(new) < 2:
+            raise HTTPException(400, "informe ao menos 2 classes")
+        old = _classes(rec)
+        # renomeia os diretórios de frames posicionalmente (ex.: aberto→seco)
+        for o, n in zip(old, new):
+            if o != n:
+                frames.rename_label(rec.id, o, n)
+        rec.classes_csv = ",".join(new)
+        if rec.alert_label not in new:
+            rec.alert_label = new[0]
     if patch.alert_label is not None:
         if patch.alert_label not in _classes(rec):
             raise HTTPException(400, f"alert_label deve ser uma de {_classes(rec)}")
@@ -185,6 +198,20 @@ def update_model(
     session.commit()
     session.refresh(rec)
     return _serialize(rec)
+
+
+@router.delete("/{mid}", status_code=204)
+def delete_model(
+    mid: int,
+    _: str = Depends(current_user),
+    session: Session = Depends(get_session),
+):
+    """Exclui o modelo e todos os seus frames/dataset/pesos."""
+    rec = _get(session, mid)
+    session.delete(rec)
+    session.commit()
+    frames.delete_model_data(mid)
+    return Response(status_code=204)
 
 
 @router.put("/{mid}/crop")

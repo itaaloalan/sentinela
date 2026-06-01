@@ -4,6 +4,7 @@ Layout: <AI_DATA_DIR>/<model_id>/<label>/<timestamp>.jpg
 Os metadados do modelo ficam no SQLite (ver db_models.AIModel).
 """
 import re
+import shutil
 import time
 import uuid
 from pathlib import Path
@@ -55,3 +56,20 @@ def delete_frame(model_id: int, label: str, filename: str) -> bool:
         return False
     path.unlink()
     return True
+
+
+def rename_label(model_id: int, old: str, new: str) -> None:
+    """Move os frames de um label para outro (ao renomear uma classe na UI)."""
+    src = model_dir(model_id, old)
+    if not src.is_dir():
+        return
+    dst = model_dir(model_id, new)
+    dst.mkdir(parents=True, exist_ok=True)
+    for p in src.glob("*.jpg"):
+        p.rename(dst / p.name)
+    shutil.rmtree(src, ignore_errors=True)
+
+
+def delete_model_data(model_id: int) -> None:
+    """Apaga todos os frames/dataset/pesos do modelo (ao excluí-lo)."""
+    shutil.rmtree(_base() / str(model_id), ignore_errors=True)

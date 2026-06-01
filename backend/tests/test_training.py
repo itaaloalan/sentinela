@@ -69,20 +69,31 @@ def test_run_training_success(monkeypatch, tmp_path):
     assert rec.version == 1
 
 
-def test_validate_frames_requires_two_per_class(monkeypatch, tmp_path):
+def test_validate_frames_needs_two_ready_classes(monkeypatch, tmp_path):
     import pytest
 
     monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
     mid = 1
-    # só 'fechado' tem frames; 'aberto' fica vazia -> erro acionável
+    # só 'fechado' pronta → 1 classe pronta → erro acionável
     for _ in range(3):
         frames.save_frame(mid, "fechado", b"jpeg")
-    with pytest.raises(ValueError, match="frames insuficientes"):
+    with pytest.raises(ValueError, match="pelo menos 2 classes"):
         training.validate_frames(mid, ["aberto", "fechado"])
-    # com 2+ por classe não levanta
+    # com 2 classes prontas, devolve só as prontas (subconjunto)
     for _ in range(2):
         frames.save_frame(mid, "aberto", b"jpeg")
-    training.validate_frames(mid, ["aberto", "fechado"])
+    assert sorted(training.validate_frames(mid, ["aberto", "fechado"])) == ["aberto", "fechado"]
+
+
+def test_validate_frames_trains_on_ready_subset(monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
+    mid = 1
+    # 3 classes definidas, só 2 prontas ('agua' vazia) → treina nas 2 prontas
+    for _ in range(2):
+        frames.save_frame(mid, "aberto", b"jpeg")
+        frames.save_frame(mid, "fechado", b"jpeg")
+    ready = training.validate_frames(mid, ["aberto", "fechado", "agua"])
+    assert sorted(ready) == ["aberto", "fechado"]
 
 
 def test_run_training_one_class_sets_clear_error(monkeypatch, tmp_path):
@@ -93,7 +104,7 @@ def test_run_training_one_class_sets_clear_error(monkeypatch, tmp_path):
     training.run_training(mid, epochs=1)
     with Session(database.engine) as s:
         rec = s.get(AIModel, mid)
-    assert "frames insuficientes" in rec.status
+    assert "pelo menos 2 classes" in rec.status
     assert rec.accuracy is None
 
 

@@ -69,6 +69,13 @@ main { padding: 1rem; max-width: 1100px; margin: 0 auto; }
   height: 100%;
   object-fit: cover;
 }
+/* preview do treino: mostra o quadro inteiro (ex.: câmera de 2 lentes) sem cortar */
+.cam-card .video.contain video-stream,
+.cam-card .video.contain video-stream video,
+.cam-card .video.contain video {
+  object-fit: contain;
+  background: #000;
+}
 .ptz-pad {
   position: absolute;
   bottom: 8px;
@@ -293,5 +300,6 @@ button {
   margin-top: 1rem;
 }
 button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); width: auto; padding: 0.4rem 0.8rem; margin: 0; }
+button.danger { color: #fda4af; border-color: #4c0519; }
 .error { color: #f87171; font-size: 0.9rem; margin-top: 0.6rem; }
 .empty { color: var(--muted); text-align: center; padding: 2rem; }
