@@ -45,6 +45,7 @@ export default function Training() {
   const [alertLabel, setAlertLabel] = useState("");
   const [debounce, setDebounce] = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testing, setTesting] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const nav = useNavigate();
 
@@ -181,7 +182,11 @@ export default function Training() {
   }
 
   function onTest() {
-    return run(async () => setTestResult(await testModel(selected!.id)));
+    setTestResult(null);
+    setTesting(true);
+    return run(async () => setTestResult(await testModel(selected!.id))).finally(() =>
+      setTesting(false),
+    );
   }
 
   function onToggleActive() {
@@ -386,6 +391,7 @@ export default function Training() {
                 {selected.status}
               </span>
               {training && <span className="muted">treinando… (atualiza sozinho)</span>}
+              {testing && <span className="muted">⏳ testando ao vivo…</span>}
               {selected.accuracy !== null && (
                 <span className="muted">acurácia {Math.round(selected.accuracy * 100)}%</span>
               )}

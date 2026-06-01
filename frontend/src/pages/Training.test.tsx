@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Training from "./Training";
 
@@ -277,12 +277,17 @@ describe("Training", () => {
     await waitFor(() => expect(api.trainModel).toHaveBeenCalledWith(1));
   });
 
-  it("tests the model live and shows label + confidence", async () => {
+  it("shows 'testando…' while running and then the label + confidence", async () => {
+    let resolve!: (r: unknown) => void;
+    api.testModel.mockReturnValue(new Promise((r) => (resolve = r)));
     const user = userEvent.setup();
     render(<Training />);
     await user.click(await screen.findByText(/portao · pronto/));
-    await user.click(await screen.findByRole("button", { name: "2. Testar ao vivo" }));
+    fireEvent.click(screen.getByRole("button", { name: "2. Testar ao vivo" }));
+    expect(await screen.findByText(/testando ao vivo/)).toBeInTheDocument(); // feedback imediato
+    resolve({ label: "aberto", confidence: 0.87 });
     expect(await screen.findByText(/aberto \(87%\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/testando ao vivo/)).toBeNull(); // some ao terminar
   });
 
   it("shows a fallback when the test result is empty", async () => {

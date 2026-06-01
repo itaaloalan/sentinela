@@ -80,6 +80,50 @@ async def test_classify_live_not_trained(monkeypatch, tmp_path):
         await inference.classify_live(_model(1), Camera(name="portao", source="x"), None)
 
 
+async def test_classify_live_caches_model_and_reloads_on_retrain(monkeypatch, tmp_path):
+    import os
+
+    monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
+    _touch_weights(1)
+    inference._model_cache.clear()
+
+    builds = {"n": 0}
+
+    class FakeProbs:
+        top1 = 0
+        top1conf = 0.5
+
+    class FakeResult:
+        probs = FakeProbs()
+        names = {0: "a", 1: "b"}
+
+    class CountingYOLO:
+        def __init__(self, weights):
+            builds["n"] += 1
+
+        def __call__(self, img):
+            return [FakeResult()]
+
+    module = types.ModuleType("ultralytics")
+    module.YOLO = CountingYOLO
+    monkeypatch.setitem(sys.modules, "ultralytics", module)
+    cam = Camera(name="portao", source="x")
+
+    with respx.mock:
+        respx.get(FRAME_URL).mock(return_value=httpx.Response(200, content=_jpeg()))
+        await inference.classify_live(_model(1), cam, None)
+        await inference.classify_live(_model(1), cam, None)  # cache hit
+    assert builds["n"] == 1  # carregou só 1x
+
+    # re-treino muda o mtime do best.pt → invalida o cache
+    w = inference.weights_path(1)
+    os.utime(w, (w.stat().st_atime, w.stat().st_mtime + 10))
+    with respx.mock:
+        respx.get(FRAME_URL).mock(return_value=httpx.Response(200, content=_jpeg()))
+        await inference.classify_live(_model(1), cam, None)
+    assert builds["n"] == 2  # recarregou após o re-treino
+
+
 async def test_classify_live_empty_frame(monkeypatch, tmp_path):
     # go2rtc devolve 200 com corpo vazio (câmera sem stream) → erro acionável
     monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))

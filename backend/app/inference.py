@@ -15,6 +15,24 @@ def weights_path(model_id: int) -> Path:
     return Path(settings.ai_data_dir) / str(model_id) / "run" / "weights" / "best.pt"
 
 
+# cache do modelo carregado (carregar o YOLO a cada teste é lento). Chaveado pelo
+# caminho dos pesos + mtime, então re-treinar (novo best.pt) invalida sozinho.
+_model_cache: dict[str, tuple[float, object]] = {}
+
+
+def _load_model(weights: Path):
+    from ultralytics import YOLO  # lazy/pesado
+
+    key = str(weights)
+    mtime = weights.stat().st_mtime
+    cached = _model_cache.get(key)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
+    model = YOLO(key)
+    _model_cache[key] = (mtime, model)
+    return model
+
+
 async def classify_live(model: AIModel, camera: Camera, crop: dict | None) -> dict:
     """Pega um frame ao vivo, aplica o crop e classifica. label + confidence."""
     weights = weights_path(model.id)
@@ -34,8 +52,6 @@ async def classify_live(model: AIModel, camera: Camera, crop: dict | None) -> di
     if crop is not None:
         img = img.crop((crop["x1"], crop["y1"], crop["x2"], crop["y2"]))
 
-    from ultralytics import YOLO  # lazy/pesado
-
-    result = YOLO(str(weights))(img)[0]
+    result = _load_model(weights)(img)[0]
     probs = result.probs
     return {"label": result.names[probs.top1], "confidence": float(probs.top1conf)}
