@@ -25,6 +25,8 @@ vi.mock("../lib/api", () => ({
 
 const FOUND = {
   subnet: "192.168.0.0/24",
+  scanned: 254,
+  reachable: [{ ip: "192.168.0.12", ports: [554] }],
   candidates: [
     {
       ip: "192.168.0.12", mac: "14:5d:34:ec:04:f9", vendor: "Bilian",
@@ -164,17 +166,36 @@ describe("Grid", () => {
     expect(img.style.display).toBe("none");
   });
 
-  it("discovers cameras and prefills the form when clicking Usar", async () => {
+  it("discovers cameras, logs the scan, and prefills the form when clicking Usar", async () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
     await user.click(screen.getByRole("button", { name: "Descobrir" }));
+    expect(await screen.findByText(/254 IPs varridos/)).toBeInTheDocument();
+    expect(screen.getByText(/192\.168\.0\.12 — portas 554/)).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Usar" }));
     expect((screen.getByPlaceholderText(/nome/) as HTMLInputElement).value).toBe("12");
     expect((screen.getByPlaceholderText(/source/) as HTMLInputElement).value).toBe(
       "rtsp://admin:SENHA@192.168.0.12:554/onvif1",
     );
     expect((screen.getByLabelText("tipo") as HTMLSelectElement).value).toBe("rtsp");
+  });
+
+  it("logs a hint when discovery finds no cameras", async () => {
+    api.discoverCameras.mockResolvedValue({
+      subnet: "192.168.0.0/24",
+      scanned: 254,
+      reachable: [{ ip: "192.168.0.1", ports: [80] }],
+      candidates: [],
+    });
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await user.click(screen.getByRole("button", { name: "Descobrir" }));
+    expect(
+      await screen.findByText(/Nenhuma câmera respondeu nas portas RTSP\/DVRIP/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/192\.168\.0\.1 — portas 80/)).toBeInTheDocument();
   });
 
   it("shows progress text while discovering", async () => {

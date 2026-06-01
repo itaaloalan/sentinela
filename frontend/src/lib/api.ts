@@ -71,8 +71,15 @@ export interface DiscoveredCamera {
   label: string;
 }
 
+export interface ReachableHost {
+  ip: string;
+  ports: number[];
+}
+
 export interface DiscoverResult {
   subnet: string;
+  scanned: number;
+  reachable: ReachableHost[];
   candidates: DiscoveredCamera[];
 }
 

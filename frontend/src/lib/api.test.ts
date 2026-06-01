@@ -120,7 +120,7 @@ describe("authenticated requests", () => {
 
   it("discoverCameras fetches the discover endpoint", async () => {
     auth.token = "tok";
-    const payload = { subnet: "192.168.0.0/24", candidates: [] };
+    const payload = { subnet: "192.168.0.0/24", scanned: 254, reachable: [], candidates: [] };
     fetchMock.mockResolvedValue(mockResponse({ json: payload }));
     expect(await discoverCameras()).toEqual(payload);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/cameras/discover");

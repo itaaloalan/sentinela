@@ -23,6 +23,7 @@ export default function Grid() {
   const [busy, setBusy] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [found, setFound] = useState<DiscoveredCamera[]>([]);
+  const [log, setLog] = useState<string[]>([]);
   const nav = useNavigate();
 
   const refresh = useCallback(() => {
@@ -71,11 +72,25 @@ export default function Grid() {
   async function onDiscover() {
     setDiscovering(true);
     setError("");
+    setLog(["Procurando câmeras na rede…"]);
     try {
       const result = await discoverCameras();
       setFound(result.candidates);
+      const lines = [
+        `Sub-rede ${result.subnet}: ${result.scanned} IPs varridos.`,
+        `${result.reachable.length} host(s) com porta aberta · ${result.candidates.length} câmera(s) identificada(s).`,
+        ...result.reachable.map((h) => `• ${h.ip} — portas ${h.ports.join(", ")}`),
+      ];
+      if (result.candidates.length === 0) {
+        lines.push(
+          "Nenhuma câmera respondeu nas portas RTSP/DVRIP (554/34567). Verifique se o RTSP está ligado nas câmeras.",
+        );
+      }
+      setLog(lines);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao descobrir");
+      const msg = err instanceof Error ? err.message : "Erro ao descobrir";
+      setError(msg);
+      setLog((prev) => [...prev, `Erro: ${msg}`]);
     } finally {
       setDiscovering(false);
     }
@@ -130,6 +145,8 @@ export default function Grid() {
             {discovering ? "Procurando…" : "Descobrir"}
           </button>
         </form>
+
+        {log.length > 0 && <pre className="discover-log">{log.join("\n")}</pre>}
 
         {found.length > 0 && (
           <div className="discover-list">

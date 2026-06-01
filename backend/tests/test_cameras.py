@@ -104,6 +104,8 @@ def test_discover_requires_auth(client):
 def test_discover_returns_candidates(client, auth_headers, monkeypatch):
     fake = {
         "subnet": "192.168.0.0/24",
+        "scanned": 254,
+        "reachable": [{"ip": "192.168.0.12", "ports": [554]}],
         "candidates": [
             {
                 "ip": "192.168.0.12", "mac": None, "vendor": None, "ports": [554],

@@ -111,12 +111,25 @@ async def discover(timeout: float = 1.0, concurrency: int = 128) -> dict:
     arp = arp_table()
 
     candidates = []
+    reachable = []
     for ip, open_ports in hosts:
+        if open_ports:
+            reachable.append({"ip": ip, "ports": open_ports})
         mac = arp.get(ip)
         vendor = vendor_for_mac(mac) if mac else None
         cand = classify(ip, open_ports, mac, vendor)
         if cand:
             candidates.append(cand)
 
-    candidates.sort(key=lambda c: tuple(int(x) for x in c["ip"].split(".")))
-    return {"subnet": f"{base}.0/24", "candidates": candidates}
+    reachable.sort(key=_by_ip)
+    candidates.sort(key=_by_ip)
+    return {
+        "subnet": f"{base}.0/24",
+        "scanned": len(hosts),
+        "reachable": reachable,
+        "candidates": candidates,
+    }
+
+
+def _by_ip(item: dict) -> tuple[int, ...]:
+    return tuple(int(x) for x in item["ip"].split("."))

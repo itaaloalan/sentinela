@@ -116,8 +116,14 @@ async def test_discover_returns_sorted_candidates(monkeypatch):
 
     result = await discovery.discover(timeout=0.01)
     assert result["subnet"] == "192.168.0.0/24"
+    assert result["scanned"] == 254
     ips = [c["ip"] for c in result["candidates"]]
     assert ips == ["192.168.0.12", "192.168.0.66"]  # ordenado por IP
+
+    # diagnóstico: hosts com porta aberta (mesmo os classificados como câmera)
+    reachable_ips = [h["ip"] for h in result["reachable"]]
+    assert reachable_ips == ["192.168.0.12", "192.168.0.66"]
+    assert result["reachable"][0]["ports"] == [554]
 
     rtsp = result["candidates"][0]
     dvrip = result["candidates"][1]
