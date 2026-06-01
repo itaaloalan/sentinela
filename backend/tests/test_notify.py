@@ -3,10 +3,18 @@ import respx
 
 from app import settings_store
 from app.config import settings
-from app.notify import send_gate_open
+from app.notify import send_emergency, send_gate_open
 
 NTFY_URL = f"{settings.ntfy_server}/{settings.ntfy_topic}"
 DISCORD = "https://discord.com/api/webhooks/1/abc"
+
+
+@respx.mock
+async def test_send_emergency_high_priority():
+    route = respx.put(NTFY_URL).mock(return_value=httpx.Response(200))
+    await send_emergency()
+    assert route.called
+    assert route.calls.last.request.headers["Priority"] == "urgent"
 
 
 @respx.mock

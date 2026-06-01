@@ -8,12 +8,16 @@ const api = {
   getVigilanteConfig: vi.fn(),
   listObservations: vi.fn(),
   setVigilante: vi.fn(),
+  listCameras: vi.fn(),
+  testVigilante: vi.fn(),
 };
 const nav = vi.fn();
 vi.mock("../lib/api", () => ({
   getVigilanteConfig: (...a: unknown[]) => api.getVigilanteConfig(...a),
   listObservations: (...a: unknown[]) => api.listObservations(...a),
   setVigilante: (...a: unknown[]) => api.setVigilante(...a),
+  listCameras: (...a: unknown[]) => api.listCameras(...a),
+  testVigilante: (...a: unknown[]) => api.testVigilante(...a),
   observationSnapshotUrl: (id: number) => `/api/observations/${id}/snapshot?token=`,
 }));
 vi.mock("react-router-dom", async () => {
@@ -30,6 +34,8 @@ beforeEach(() => {
   api.getVigilanteConfig.mockReset().mockResolvedValue({ enabled: false });
   api.listObservations.mockReset().mockResolvedValue(OBS);
   api.setVigilante.mockReset().mockResolvedValue({ enabled: true });
+  api.listCameras.mockReset().mockResolvedValue([]);
+  api.testVigilante.mockReset().mockResolvedValue({ description: "Detectado: 1 pessoa.", objects: ["person"], saved: true });
   nav.mockReset();
 });
 
@@ -116,5 +122,36 @@ describe("Vigilante", () => {
     renderPage();
     await user.click(await screen.findByRole("button", { name: "← Voltar" }));
     expect(nav).toHaveBeenCalledWith("/");
+  });
+
+  it("describes the selected camera on demand and shows the result", async () => {
+    api.listCameras.mockResolvedValue([
+      { id: 7, name: "portao", source: "x", kind: "rtsp", ptz_enabled: false },
+      { id: 9, name: "quintal", source: "x", kind: "rtsp", ptz_enabled: false },
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+    await user.selectOptions(await screen.findByLabelText("câmera para testar"), "quintal");
+    await user.click(screen.getByRole("button", { name: "🔍 Descrever agora" }));
+    expect(await screen.findByText(/💬 Detectado: 1 pessoa/)).toBeInTheDocument();
+    expect(api.testVigilante).toHaveBeenCalledWith(9);
+  });
+
+  it("shows an error when describing on demand fails", async () => {
+    api.listCameras.mockResolvedValue([{ id: 7, name: "portao", source: "x", kind: "rtsp", ptz_enabled: false }]);
+    api.testVigilante.mockRejectedValue(new Error("frame fora"));
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "🔍 Descrever agora" }));
+    expect(await screen.findByText(/💬 frame fora/)).toBeInTheDocument();
+  });
+
+  it("shows a generic error when describe rejects with a non-Error", async () => {
+    api.listCameras.mockResolvedValue([{ id: 7, name: "portao", source: "x", kind: "rtsp", ptz_enabled: false }]);
+    api.testVigilante.mockRejectedValue("x");
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "🔍 Descrever agora" }));
+    expect(await screen.findByText(/💬 Erro ao descrever/)).toBeInTheDocument();
   });
 });

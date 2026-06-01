@@ -71,9 +71,10 @@ def seed_admin(eng=engine) -> None:
         ).first()
         hashed = password_hash.hash(settings.admin_pass)
         if user is None:
-            session.add(User(username=settings.admin_user, password_hash=hashed))
+            session.add(User(username=settings.admin_user, password_hash=hashed, role="admin"))
         else:
             user.password_hash = hashed
+            user.role = "admin"  # o usuário do .env é sempre admin
             session.add(user)
         session.commit()
 

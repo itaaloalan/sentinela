@@ -1,5 +1,6 @@
 // Cliente de API mínimo. Token JWT no localStorage (MVP).
 const TOKEN_KEY = "sentinela_token";
+const ROLE_KEY = "sentinela_role";
 
 export const auth = {
   get token() {
@@ -9,11 +10,22 @@ export const auth = {
     if (v) localStorage.setItem(TOKEN_KEY, v);
     else localStorage.removeItem(TOKEN_KEY);
   },
+  get role() {
+    return localStorage.getItem(ROLE_KEY);
+  },
+  set role(v: string | null) {
+    if (v) localStorage.setItem(ROLE_KEY, v);
+    else localStorage.removeItem(ROLE_KEY);
+  },
+  get isAdmin() {
+    return localStorage.getItem(ROLE_KEY) === "admin";
+  },
   get isLoggedIn() {
     return !!localStorage.getItem(TOKEN_KEY);
   },
   logout() {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(ROLE_KEY);
   },
 };
 
@@ -41,6 +53,7 @@ export async function login(username: string, password: string) {
   if (!res.ok) throw new Error("Credenciais inválidas");
   const data = await res.json();
   auth.token = data.access_token;
+  auth.role = data.role ?? null;
 }
 
 export interface CameraIn {
@@ -373,6 +386,59 @@ export async function setVigilante(enabled: boolean): Promise<{ enabled: boolean
 
 export function observationSnapshotUrl(id: number) {
   return `/api/observations/${id}/snapshot?token=${encodeURIComponent(auth.token ?? "")}`;
+}
+
+export async function testVigilante(cameraId: number): Promise<{ description: string; objects: string[]; saved: boolean }> {
+  return (await req(`/api/observations/test?camera_id=${cameraId}`, { method: "POST" })).json();
+}
+
+// ---- Recursos para família ----
+
+export interface FamilyUser {
+  id: number;
+  username: string;
+  role: string;
+}
+
+export interface ViewLog {
+  id: number;
+  username: string;
+  camera_id: number | null;
+  created_at: string;
+}
+
+export async function listUsers(): Promise<FamilyUser[]> {
+  return (await req("/api/family/users")).json();
+}
+
+export async function createUser(username: string, password: string, role: string): Promise<FamilyUser> {
+  return (
+    await req("/api/family/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, role }),
+    })
+  ).json();
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  await req(`/api/family/users/${id}`, { method: "DELETE" });
+}
+
+export async function listViews(): Promise<ViewLog[]> {
+  return (await req("/api/family/views")).json();
+}
+
+export async function recordView(cameraId: number | null): Promise<void> {
+  await req("/api/family/views", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ camera_id: cameraId }),
+  });
+}
+
+export async function sendEmergency(): Promise<{ sent: boolean }> {
+  return (await req("/api/family/emergency", { method: "POST" })).json();
 }
 
 // ---- Acesso remoto (compartilhar) ----

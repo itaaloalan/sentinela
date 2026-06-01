@@ -3,9 +3,11 @@
 O monitor (serviço ai/) descreve frames e faz POST aqui; guardamos a descrição
 (e o snapshot, opcional) no SQLite. A UI lista e liga/desliga o modo.
 """
+import io
 import uuid
 from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -15,9 +17,39 @@ from . import settings_store
 from .auth import current_user, media_user
 from .config import settings
 from .database import get_session
-from .db_models import Observation
+from .db_models import Camera, Observation
+from .go2rtc import grab_frame
 
 router = APIRouter(prefix="/api/observations", tags=["observations"])
+
+_COCO_PT = {
+    "person": "pessoa", "car": "carro", "motorcycle": "moto", "bicycle": "bicicleta",
+    "bus": "ônibus", "truck": "caminhão", "dog": "cachorro", "cat": "gato",
+    "bird": "pássaro", "backpack": "mochila", "umbrella": "guarda-chuva",
+}
+
+
+def describe_frame(jpeg: bytes) -> tuple[str, list[str]]:
+    """Descreve o frame por detecção de objetos (YOLO-det/COCO) → (texto PT, classes).
+
+    Mesma lógica do monitor (ai/), replicada porque o monitor é um serviço à
+    parte. Permite "Descrever agora" pela UI, sem esperar o loop do monitor.
+    """
+    from PIL import Image  # lazy
+
+    img = Image.open(io.BytesIO(jpeg))
+    from ultralytics import YOLO  # lazy/pesado
+
+    result = YOLO("yolo11n.pt")(img)[0]
+    names = result.names
+    classes = [names[int(c)] for c in result.boxes.cls]
+    if not classes:
+        return "", []
+    counts: dict[str, int] = {}
+    for c in classes:
+        counts[c] = counts.get(c, 0) + 1
+    partes = [f"{n} {_COCO_PT.get(c, c)}" + ("s" if n > 1 else "") for c, n in counts.items()]
+    return "Detectado: " + ", ".join(partes) + ".", classes
 
 
 def _obs_dir() -> Path:
@@ -86,6 +118,37 @@ async def create_observation(
     session.commit()
     session.refresh(obs)
     return _serialize(obs)
+
+
+@router.post("/test")
+async def test_describe(
+    camera_id: int,
+    _: str = Depends(current_user),
+    session: Session = Depends(get_session),
+):
+    """Descreve um frame da câmera AGORA (testar o vigilante pela UI)."""
+    cam = session.get(Camera, camera_id)
+    if cam is None:
+        raise HTTPException(404, "Câmera não encontrada")
+    try:
+        jpeg = await grab_frame(cam.name)
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, f"Frame indisponível: {exc}")
+    if not jpeg:
+        raise HTTPException(502, "go2rtc não entregou frame")
+    text, objects = describe_frame(jpeg)
+    if not text:
+        return {"description": "Nada relevante detectado agora.", "objects": [], "saved": False}
+    obs = Observation(
+        camera_id=camera_id,
+        description=text,
+        objects_csv=",".join(objects),
+        snapshot=_save_snapshot(jpeg),
+    )
+    session.add(obs)
+    session.commit()
+    session.refresh(obs)
+    return {"description": text, "objects": objects, "saved": True}
 
 
 @router.get("/{oid}/snapshot")

@@ -10,6 +10,13 @@ import {
   deleteModelFrame,
   discoverCameras,
   askSummary,
+  createUser,
+  deleteUser,
+  listUsers,
+  listViews,
+  recordView,
+  sendEmergency,
+  testVigilante,
   eventSnapshotUrl,
   getAccessInfo,
   getDaySummary,
@@ -89,6 +96,22 @@ describe("login", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/auth/login");
     expect(init.method).toBe("POST");
+  });
+
+  it("stores the role and clears it on logout", async () => {
+    fetchMock.mockResolvedValue(mockResponse({ json: { access_token: "t", role: "admin" } }));
+    await login("admin", "secret");
+    expect(auth.role).toBe("admin");
+    expect(auth.isAdmin).toBe(true);
+    auth.logout();
+    expect(auth.role).toBeNull();
+    expect(auth.isAdmin).toBe(false);
+  });
+
+  it("handles a missing role in the response", async () => {
+    fetchMock.mockResolvedValue(mockResponse({ json: { access_token: "t" } }));
+    await login("x", "y");
+    expect(auth.role).toBeNull();
   });
 
   it("throws on bad credentials", async () => {
@@ -429,6 +452,61 @@ describe("AI model API", () => {
     expect(observationSnapshotUrl(7)).toBe("/api/observations/7/snapshot?token=tok");
     auth.token = null;
     expect(observationSnapshotUrl(7)).toBe("/api/observations/7/snapshot?token=");
+  });
+
+  it("testVigilante POSTs /api/observations/test with camera_id", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { description: "x", objects: [], saved: false } }));
+    await testVigilante(5);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/observations/test?camera_id=5");
+    expect(fetchMock.mock.calls[0][1].method).toBe("POST");
+  });
+
+  it("listUsers GETs /api/family/users", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: [{ id: 1, username: "admin", role: "admin" }] }));
+    expect(await listUsers()).toEqual([{ id: 1, username: "admin", role: "admin" }]);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/family/users");
+  });
+
+  it("createUser POSTs the new user as JSON", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { id: 2, username: "maria", role: "familiar" } }));
+    await createUser("maria", "p", "familiar");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/family/users");
+    expect(JSON.parse(init.body)).toEqual({ username: "maria", password: "p", role: "familiar" });
+  });
+
+  it("deleteUser DELETEs the user", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { deleted: 2 } }));
+    await deleteUser(2);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/family/users/2");
+    expect(fetchMock.mock.calls[0][1].method).toBe("DELETE");
+  });
+
+  it("listViews GETs /api/family/views", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: [] }));
+    expect(await listViews()).toEqual([]);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/family/views");
+  });
+
+  it("recordView POSTs the camera_id", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { id: 1 } }));
+    await recordView(null);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/family/views");
+    expect(JSON.parse(init.body)).toEqual({ camera_id: null });
+  });
+
+  it("sendEmergency POSTs /api/family/emergency", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { sent: true } }));
+    expect(await sendEmergency()).toEqual({ sent: true });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/family/emergency");
   });
 
   it("getNotifyConfig GETs /api/notify/config", async () => {

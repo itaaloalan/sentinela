@@ -6,6 +6,7 @@ import {
   deleteCamera,
   discoverCameras,
   listCameras,
+  recordView,
   updateCamera,
   type Camera,
   type DiscoveredCamera,
@@ -40,6 +41,7 @@ export default function Grid() {
 
   useEffect(() => {
     refresh();
+    recordView(null).catch(() => {}); // registra acesso ao painel (histórico)
   }, [refresh]);
 
   function logout() {
@@ -144,6 +146,7 @@ export default function Grid() {
           <button className="ghost" onClick={() => nav("/eventos")}>🔔 Eventos</button>
           <button className="ghost" onClick={() => nav("/resumo")}>📋 Resumo</button>
           <button className="ghost" onClick={() => nav("/vigilante")}>👁 Vigilante</button>
+          <button className="ghost" onClick={() => nav("/familia")}>👨‍👩‍👧 Família</button>
           <button className="ghost" onClick={() => nav("/notificacoes")}>📲 Notificações</button>
           <button className="ghost" onClick={() => nav("/saude")}>❤️ Saúde</button>
           <button className="ghost" onClick={logout}>🚪 Sair</button>

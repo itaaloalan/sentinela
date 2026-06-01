@@ -13,6 +13,7 @@ const api = {
   updateCamera: vi.fn(),
   deleteCamera: vi.fn(),
   discoverCameras: vi.fn(),
+  recordView: vi.fn(),
 };
 vi.mock("../lib/api", () => ({
   auth: { logout: (...a: unknown[]) => api.auth.logout(...a) },
@@ -21,6 +22,7 @@ vi.mock("../lib/api", () => ({
   updateCamera: (...a: unknown[]) => api.updateCamera(...a),
   deleteCamera: (...a: unknown[]) => api.deleteCamera(...a),
   discoverCameras: (...a: unknown[]) => api.discoverCameras(...a),
+  recordView: (...a: unknown[]) => api.recordView(...a),
   streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
   snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot?token=`,
   ptzMove: vi.fn(),
@@ -60,6 +62,7 @@ beforeEach(() => {
   api.updateCamera.mockReset().mockResolvedValue(ONE[0]);
   api.deleteCamera.mockReset().mockResolvedValue(undefined);
   api.discoverCameras.mockReset().mockResolvedValue(FOUND);
+  api.recordView.mockReset().mockResolvedValue(undefined);
 });
 
 describe("Grid", () => {
@@ -333,6 +336,21 @@ describe("Grid", () => {
     await openMenu(user);
     await user.click(screen.getByRole("button", { name: "📋 Resumo" }));
     expect(navigate).toHaveBeenCalledWith("/resumo");
+  });
+
+  it("navigates to the family page", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await openMenu(user);
+    await user.click(screen.getByRole("button", { name: "👨‍👩‍👧 Família" }));
+    expect(navigate).toHaveBeenCalledWith("/familia");
+  });
+
+  it("records a dashboard view on mount", async () => {
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await waitFor(() => expect(api.recordView).toHaveBeenCalledWith(null));
   });
 
   it("navigates to the vigilante page", async () => {

@@ -41,7 +41,14 @@ vi.mock("./lib/api", () => ({
   getVigilanteConfig: vi.fn().mockResolvedValue({ enabled: false }),
   listObservations: vi.fn().mockResolvedValue([]),
   setVigilante: vi.fn(),
+  testVigilante: vi.fn(),
   observationSnapshotUrl: () => "",
+  recordView: vi.fn().mockResolvedValue(undefined),
+  listUsers: vi.fn().mockResolvedValue([]),
+  createUser: vi.fn(),
+  deleteUser: vi.fn(),
+  listViews: vi.fn().mockResolvedValue([]),
+  sendEmergency: vi.fn(),
 }));
 
 function renderAt(path: string) {

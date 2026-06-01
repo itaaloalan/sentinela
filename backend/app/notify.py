@@ -40,6 +40,21 @@ async def send_test() -> None:
         await _send_discord(client, "✅ Sentinela: notificação de teste. Tudo certo!")
 
 
+async def send_emergency() -> None:
+    """Botão de emergência: alerta urgente no ntfy + Discord."""
+    headers = {
+        "Title": "EMERGENCIA - Sentinela",
+        "Priority": "urgent",
+        "Tags": "rotating_light,sos",
+        "Click": settings.app_public_url,
+    }
+    msg = b"BOTAO DE EMERGENCIA acionado no Sentinela!"
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.put(_topic_url(), content=msg, headers=headers)
+        resp.raise_for_status()
+        await _send_discord(client, "🆘 EMERGÊNCIA acionada no Sentinela!")
+
+
 async def send_gate_open(snapshot_jpeg: bytes, event_id: int | None = None) -> None:
     """Publica no ntfy com o snapshot no corpo (renderiza inline na notificação)."""
     click = settings.app_public_url

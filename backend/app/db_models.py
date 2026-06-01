@@ -9,11 +9,15 @@ def _now() -> dt.datetime:
 
 
 class User(SQLModel, table=True):
-    """Usuário único do MVP. Senha guardada como hash (nunca em texto puro)."""
+    """Usuário do sistema. Senha guardada como hash (nunca em texto puro).
+
+    `role`: "admin" (gerencia tudo) ou "familiar" (acesso de visualização).
+    """
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
     password_hash: str
+    role: str = "admin"
 
 
 class Camera(SQLModel, table=True):
@@ -65,6 +69,15 @@ class Event(SQLModel, table=True):
     camera_id: int
     label: str
     snapshot: str                     # nome do arquivo do snapshot
+    created_at: dt.datetime = Field(default_factory=_now)
+
+
+class CameraView(SQLModel, table=True):
+    """Histórico de acesso: quem abriu o painel/câmeras e quando."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    username: str
+    camera_id: int | None = None      # None = abriu o painel (todas)
     created_at: dt.datetime = Field(default_factory=_now)
 
 

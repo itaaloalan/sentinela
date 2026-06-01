@@ -46,11 +46,22 @@ def login(
     user = session.exec(select(User).where(User.username == form.username)).first()
     if user is None or not password_hash.verify(form.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Credenciais inválidas")
-    return {"access_token": _make_token(user.username), "token_type": "bearer"}
+    return {"access_token": _make_token(user.username), "token_type": "bearer", "role": user.role}
 
 
 def current_user(token: str = Depends(oauth2)) -> str:
     return _subject_from_token(token)
+
+
+def require_admin(
+    username: str = Depends(current_user),
+    session: Session = Depends(get_session),
+) -> str:
+    """Só permite administradores (gestão de usuários/família)."""
+    user = session.exec(select(User).where(User.username == username)).first()
+    if user is None or user.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Apenas administradores")
+    return username
 
 
 def media_user(

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import access, applog, auth, cameras, events, notifications, observations, status, summary
+from . import access, applog, auth, cameras, events, family, notifications, observations, status, summary
 from . import models as ai_models
 from .database import init_db
 
@@ -36,6 +36,7 @@ app.include_router(status.router)
 app.include_router(access.router)
 app.include_router(summary.router)
 app.include_router(observations.router)
+app.include_router(family.router)
 
 
 @app.get("/health")
