@@ -243,3 +243,16 @@ export async function listEvents(): Promise<AlertEvent[]> {
 export function eventSnapshotUrl(id: number) {
   return `/api/events/${id}/snapshot?token=${encodeURIComponent(auth.token ?? "")}`;
 }
+
+// ---- Notificações (ntfy) ----
+
+export interface NotifyConfig {
+  server: string;
+  topic: string;
+  app_public_url: string;
+  configured: boolean;
+}
+
+export async function getNotifyConfig(): Promise<NotifyConfig> {
+  return (await req("/api/notify/config")).json();
+}

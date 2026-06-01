@@ -137,6 +137,7 @@ export default function Grid() {
         <span className="spacer" />
         <button className="ghost" onClick={() => nav("/treinos")}>🧠 Treinos</button>
         <button className="ghost" onClick={() => nav("/eventos")}>🔔 Eventos</button>
+        <button className="ghost" onClick={() => nav("/notificacoes")}>📲 Notificações</button>
         <button className="ghost" onClick={logout}>Sair</button>
       </header>
       <main>

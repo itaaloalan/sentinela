@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Grid from "./pages/Grid";
 import Training from "./pages/Training";
 import Events from "./pages/Events";
+import Notifications from "./pages/Notifications";
 
 function Protected({ children }: { children: React.ReactNode }) {
   return auth.isLoggedIn ? <>{children}</> : <Navigate to="/login" replace />;
@@ -34,6 +35,14 @@ export default function App() {
         element={
           <Protected>
             <Events />
+          </Protected>
+        }
+      />
+      <Route
+        path="/notificacoes"
+        element={
+          <Protected>
+            <Notifications />
           </Protected>
         }
       />

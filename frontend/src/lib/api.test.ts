@@ -9,6 +9,7 @@ import {
   deleteModelFrame,
   discoverCameras,
   eventSnapshotUrl,
+  getNotifyConfig,
   listEvents,
   listCameras,
   listModelFrames,
@@ -299,5 +300,13 @@ describe("AI model API", () => {
 
   it("eventSnapshotUrl uses empty token when logged out", () => {
     expect(eventSnapshotUrl(5)).toBe("/api/events/5/snapshot?token=");
+  });
+
+  it("getNotifyConfig GETs /api/notify/config", async () => {
+    auth.token = "t";
+    const cfg = { server: "https://ntfy.sh", topic: "x", app_public_url: "u", configured: true };
+    fetchMock.mockResolvedValue(mockResponse({ json: cfg }));
+    expect(await getNotifyConfig()).toEqual(cfg);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/notify/config");
   });
 });

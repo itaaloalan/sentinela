@@ -294,6 +294,14 @@ describe("Grid", () => {
     expect(navigate).toHaveBeenCalledWith("/eventos");
   });
 
+  it("navigates to the notifications page", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await user.click(screen.getByRole("button", { name: "📲 Notificações" }));
+    expect(navigate).toHaveBeenCalledWith("/notificacoes");
+  });
+
   it("logs out and navigates to /login", async () => {
     const user = userEvent.setup();
     render(<Grid />);
