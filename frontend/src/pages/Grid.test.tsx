@@ -277,6 +277,14 @@ describe("Grid", () => {
     expect(await screen.findByText("Erro ao descobrir")).toBeInTheDocument();
   });
 
+  it("navigates to the training page", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await user.click(screen.getByRole("button", { name: "🧠 Treinos" }));
+    expect(navigate).toHaveBeenCalledWith("/treinos");
+  });
+
   it("logs out and navigates to /login", async () => {
     const user = userEvent.setup();
     render(<Grid />);

@@ -107,3 +107,87 @@ export function streamWsUrl(name: string) {
   const proto = location.protocol.replace("http", "ws"); // http→ws, https→wss
   return `${proto}//${location.host}/go2rtc/api/ws?src=${encodeURIComponent(name)}`;
 }
+
+// ---- Modelos de IA (treino do portão) ----
+
+export interface Crop {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface AIModel {
+  id: number;
+  camera_id: number;
+  name: string;
+  classes: string[];
+  crop: Crop | null;
+  version: number;
+  accuracy: number | null;
+  active: boolean;
+  status: string;
+  frames: Record<string, number>;
+}
+
+export async function listModels(): Promise<AIModel[]> {
+  return (await req("/api/models")).json();
+}
+
+export async function createModel(cameraId: number, name: string): Promise<AIModel> {
+  const res = await req("/api/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ camera_id: cameraId, name }),
+  });
+  return res.json();
+}
+
+export async function captureFrame(id: number, label: string): Promise<{ frames: number }> {
+  return (
+    await req(`/api/models/${id}/capture?label=${encodeURIComponent(label)}`, {
+      method: "POST",
+    })
+  ).json();
+}
+
+export async function listModelFrames(id: number): Promise<Record<string, string[]>> {
+  return (await req(`/api/models/${id}/frames`)).json();
+}
+
+export function modelFrameUrl(id: number, label: string, filename: string) {
+  return (
+    `/api/models/${id}/frames/${encodeURIComponent(label)}/${encodeURIComponent(filename)}` +
+    `?token=${encodeURIComponent(auth.token ?? "")}`
+  );
+}
+
+export async function deleteModelFrame(
+  id: number,
+  label: string,
+  filename: string,
+): Promise<void> {
+  await req(
+    `/api/models/${id}/frames/${encodeURIComponent(label)}/${encodeURIComponent(filename)}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function setModelCrop(id: number, crop: Crop): Promise<AIModel> {
+  const res = await req(`/api/models/${id}/crop`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(crop),
+  });
+  return res.json();
+}
+
+export async function trainModel(id: number): Promise<{ status: string }> {
+  return (await req(`/api/models/${id}/train`, { method: "POST" })).json();
+}
+
+export async function activateModel(id: number, active: boolean): Promise<{ active: boolean }> {
+  return (
+    await req(`/api/models/${id}/activate?active=${active}`, { method: "POST" })
+  ).json();
+}

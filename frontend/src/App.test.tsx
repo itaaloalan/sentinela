@@ -19,6 +19,16 @@ vi.mock("./lib/api", () => ({
   deleteCamera: vi.fn(),
   discoverCameras: vi.fn().mockResolvedValue({ subnet: "", scanned: 0, reachable: [], candidates: [] }),
   streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
+  snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot?token=`,
+  listModels: vi.fn().mockResolvedValue([]),
+  createModel: vi.fn(),
+  captureFrame: vi.fn(),
+  listModelFrames: vi.fn().mockResolvedValue({}),
+  deleteModelFrame: vi.fn(),
+  setModelCrop: vi.fn(),
+  trainModel: vi.fn(),
+  activateModel: vi.fn(),
+  modelFrameUrl: () => "",
 }));
 
 function renderAt(path: string) {
@@ -49,5 +59,13 @@ describe("App routing", () => {
     state.loggedIn = true;
     renderAt("/rota-inexistente");
     expect(await screen.findByRole("button", { name: "Sair" })).toBeInTheDocument();
+  });
+
+  it("renders the training page on /treinos when logged in", async () => {
+    state.loggedIn = true;
+    renderAt("/treinos");
+    expect(
+      await screen.findByRole("heading", { name: /Treino da IA/ }),
+    ).toBeInTheDocument();
   });
 });

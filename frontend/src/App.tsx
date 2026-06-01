@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { auth } from "./lib/api";
 import Login from "./pages/Login";
 import Grid from "./pages/Grid";
+import Training from "./pages/Training";
 
 function Protected({ children }: { children: React.ReactNode }) {
   return auth.isLoggedIn ? <>{children}</> : <Navigate to="/login" replace />;
@@ -19,7 +20,15 @@ export default function App() {
           </Protected>
         }
       />
-      {/* TODO Fase 4: /treinos (criar/treinar/testar modelos) ; Fase 5: /events */}
+      <Route
+        path="/treinos"
+        element={
+          <Protected>
+            <Training />
+          </Protected>
+        }
+      />
+      {/* TODO Fase 5: /events (histórico de alertas) */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

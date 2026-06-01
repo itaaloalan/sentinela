@@ -1,13 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  activateModel,
   auth,
+  captureFrame,
   createCamera,
+  createModel,
   deleteCamera,
+  deleteModelFrame,
   discoverCameras,
   listCameras,
+  listModelFrames,
+  listModels,
   login,
+  modelFrameUrl,
+  setModelCrop,
   snapshotUrl,
   streamWsUrl,
+  trainModel,
   updateCamera,
 } from "./api";
 
@@ -162,5 +171,84 @@ describe("streamWsUrl", () => {
     expect(streamWsUrl("portao")).toBe(
       "ws://localhost/go2rtc/api/ws?src=portao",
     );
+  });
+});
+
+describe("AI model API", () => {
+  it("listModels GETs /api/models", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: [{ id: 1 }] }));
+    expect(await listModels()).toEqual([{ id: 1 }]);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/models");
+  });
+
+  it("createModel posts camera_id + name", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { id: 1 } }));
+    await createModel(2, "portao");
+    const init = fetchMock.mock.calls[0][1];
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ camera_id: 2, name: "portao" });
+  });
+
+  it("captureFrame posts with the label query", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { frames: 1 } }));
+    await captureFrame(1, "aberto");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/models/1/capture?label=aberto");
+    expect(init.method).toBe("POST");
+  });
+
+  it("listModelFrames GETs the frames map", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { aberto: [] } }));
+    expect(await listModelFrames(1)).toEqual({ aberto: [] });
+  });
+
+  it("modelFrameUrl includes the token", () => {
+    auth.token = "t";
+    expect(modelFrameUrl(1, "aberto", "f.jpg")).toBe(
+      "/api/models/1/frames/aberto/f.jpg?token=t",
+    );
+  });
+
+  it("modelFrameUrl uses empty token when logged out", () => {
+    expect(modelFrameUrl(1, "aberto", "f.jpg")).toBe(
+      "/api/models/1/frames/aberto/f.jpg?token=",
+    );
+  });
+
+  it("deleteModelFrame issues a DELETE", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: null }));
+    await deleteModelFrame(1, "aberto", "f.jpg");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/models/1/frames/aberto/f.jpg");
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("setModelCrop PUTs the crop", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { id: 1 } }));
+    await setModelCrop(1, { x1: 1, y1: 2, x2: 3, y2: 4 });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/models/1/crop");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ x1: 1, y1: 2, x2: 3, y2: 4 });
+  });
+
+  it("trainModel posts to /train", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { status: "treinando" } }));
+    expect(await trainModel(1)).toEqual({ status: "treinando" });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/models/1/train");
+  });
+
+  it("activateModel posts with the active query", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { active: true } }));
+    await activateModel(1, true);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/models/1/activate?active=true");
   });
 });

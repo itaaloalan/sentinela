@@ -134,6 +134,7 @@ export default function Grid() {
       <header className="app-header">
         <h1>🛡️ Sentinela</h1>
         <span className="spacer" />
+        <button className="ghost" onClick={() => nav("/treinos")}>🧠 Treinos</button>
         <button className="ghost" onClick={logout}>Sair</button>
       </header>
       <main>
