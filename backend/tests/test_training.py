@@ -69,6 +69,34 @@ def test_run_training_success(monkeypatch, tmp_path):
     assert rec.version == 1
 
 
+def test_validate_frames_requires_two_per_class(monkeypatch, tmp_path):
+    import pytest
+
+    monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
+    mid = 1
+    # só 'fechado' tem frames; 'aberto' fica vazia -> erro acionável
+    for _ in range(3):
+        frames.save_frame(mid, "fechado", b"jpeg")
+    with pytest.raises(ValueError, match="frames insuficientes"):
+        training.validate_frames(mid, ["aberto", "fechado"])
+    # com 2+ por classe não levanta
+    for _ in range(2):
+        frames.save_frame(mid, "aberto", b"jpeg")
+    training.validate_frames(mid, ["aberto", "fechado"])
+
+
+def test_run_training_one_class_sets_clear_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
+    mid = _make_model()
+    for _ in range(3):
+        frames.save_frame(mid, "fechado", b"jpeg")  # 'aberto' sem frames
+    training.run_training(mid, epochs=1)
+    with Session(database.engine) as s:
+        rec = s.get(AIModel, mid)
+    assert "frames insuficientes" in rec.status
+    assert rec.accuracy is None
+
+
 def test_run_training_failure_sets_error(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
     mid = _make_model()

@@ -15,6 +15,24 @@ from .database import engine
 from .db_models import AIModel
 
 _TRAIN_SPLIT = 0.8
+_MIN_PER_CLASS = 2  # 1 p/ treino + 1 p/ validação, no mínimo
+
+
+def validate_frames(model_id: int, classes: list[str]) -> None:
+    """Garante material suficiente antes de chamar o YOLO.
+
+    Sem isso o Ultralytics falha com mensagens crípticas (ex.: 'val: None' →
+    'expected str, bytes or os.PathLike object, not NoneType'). Aqui o erro
+    vira texto acionável que aparece no status do modelo na UI.
+    """
+    counts = {label: frames_mod.count_frames(model_id, label) for label in classes}
+    faltando = [f"'{label}' ({n})" for label, n in counts.items() if n < _MIN_PER_CLASS]
+    if faltando:
+        raise ValueError(
+            "frames insuficientes — capture pelo menos "
+            f"{_MIN_PER_CLASS} por classe (treino+validação). Faltando: "
+            + ", ".join(faltando)
+        )
 
 
 def build_dataset(model_id: int, classes: list[str]) -> Path:
@@ -57,6 +75,7 @@ def run_training(model_id: int, epochs: int = 30) -> None:
         rec = session.get(AIModel, model_id)
         classes = rec.classes_csv.split(",")
     try:
+        validate_frames(model_id, classes)
         dataset = build_dataset(model_id, classes)
         accuracy: float | None = _train_yolo(dataset, epochs)
         status = "pronto"
