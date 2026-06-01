@@ -1,9 +1,11 @@
-"""Tabelas SQLModel persistidas em SQLite (Fase 2).
+"""Tabelas SQLModel persistidas em SQLite."""
+import datetime as dt
 
-Apenas `User` e `Camera` por enquanto. Os modelos de IA e eventos seguem em
-memória (ver `db.py`) até a Fase 4/5.
-"""
 from sqlmodel import Field, SQLModel
+
+
+def _now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
 
 
 class User(SQLModel, table=True):
@@ -44,3 +46,14 @@ class AIModel(SQLModel, table=True):
     accuracy: float | None = None
     active: bool = False
     status: str = "novo"              # novo | treinando | pronto | erro
+
+
+class Event(SQLModel, table=True):
+    """Evento detectado pelo monitor (ex.: portão aberto). Snapshot em disco."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    model_id: int
+    camera_id: int
+    label: str
+    snapshot: str                     # nome do arquivo do snapshot
+    created_at: dt.datetime = Field(default_factory=_now)
