@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
+from sqlalchemy import inspect as sa_inspect, text
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from .config import settings
@@ -36,9 +37,30 @@ engine = create_engine(
 
 
 def init_db(eng=engine) -> None:
-    """Cria as tabelas e garante o usuário admin. Idempotente."""
+    """Cria as tabelas, aplica migração aditiva e garante o admin. Idempotente."""
     SQLModel.metadata.create_all(eng)
+    _migrate(eng)
     seed_admin(eng)
+
+
+def _migrate(eng) -> None:
+    """Migração aditiva p/ SQLite (MVP sem Alembic): adiciona colunas novas.
+
+    `create_all` não altera tabelas existentes — quando o modelo ganha uma coluna
+    nova (ex.: alert_label), bancos antigos ficariam sem ela e o SELECT quebraria.
+    Aqui comparamos as colunas do modelo com as do banco e fazemos ADD COLUMN nas
+    que faltam (todas nullable hoje, então sem default).
+    """
+    insp = sa_inspect(eng)
+    with eng.begin() as conn:
+        for table in SQLModel.metadata.tables.values():
+            have = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name not in have:
+                    ddl = col.type.compile(dialect=eng.dialect)
+                    conn.execute(
+                        text(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {ddl}')
+                    )
 
 
 def seed_admin(eng=engine) -> None:

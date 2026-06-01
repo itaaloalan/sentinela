@@ -18,6 +18,7 @@ import {
   listModels,
   login,
   modelFrameUrl,
+  updateModel,
   ptzMove,
   setModelCrop,
   testModel,
@@ -218,6 +219,28 @@ describe("AI model API", () => {
     const init = fetchMock.mock.calls[0][1];
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({ camera_id: 2, name: "portao" });
+  });
+
+  it("createModel includes classes and alert_label when given", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { id: 1 } }));
+    await createModel(2, "pia", ["vazamento", "seco"], "vazamento");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      camera_id: 2,
+      name: "pia",
+      classes: ["vazamento", "seco"],
+      alert_label: "vazamento",
+    });
+  });
+
+  it("updateModel PUTs the patch as JSON", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { id: 1 } }));
+    await updateModel(1, { name: "novo", debounce_seconds: 60 });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/models/1");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ name: "novo", debounce_seconds: 60 });
   });
 
   it("captureFrame posts with the label query", async () => {

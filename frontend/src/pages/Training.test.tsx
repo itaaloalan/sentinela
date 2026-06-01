@@ -21,6 +21,7 @@ const api = {
   trainModel: vi.fn(),
   testModel: vi.fn(),
   activateModel: vi.fn(),
+  updateModel: vi.fn(),
 };
 vi.mock("../lib/api", () => ({
   auth: {},
@@ -34,6 +35,7 @@ vi.mock("../lib/api", () => ({
   trainModel: (...a: unknown[]) => api.trainModel(...a),
   testModel: (...a: unknown[]) => api.testModel(...a),
   activateModel: (...a: unknown[]) => api.activateModel(...a),
+  updateModel: (...a: unknown[]) => api.updateModel(...a),
   modelFrameUrl: (id: number, label: string, f: string) =>
     `/api/models/${id}/frames/${label}/${f}?token=`,
 }));
@@ -42,11 +44,13 @@ vi.mock("../lib/api", () => ({
 // modelo 2: câmera inexistente (sem preview), crop null, accuracy null, inativo
 const M1 = {
   id: 1, camera_id: 1, name: "portao", classes: ["aberto", "fechado"],
+  alert_label: "aberto", debounce_seconds: 45,
   crop: { x1: 1, y1: 2, x2: 3, y2: 4 }, version: 1, accuracy: 0.9,
   active: true, status: "pronto", frames: { aberto: 2, fechado: 1 },
 };
 const M2 = {
   id: 2, camera_id: 99, name: "vazio", classes: ["aberto", "fechado"],
+  alert_label: "aberto", debounce_seconds: 45,
   crop: null, version: 0, accuracy: null, active: false, status: "novo",
   frames: { aberto: 0 },
 };
@@ -64,6 +68,7 @@ beforeEach(() => {
   api.trainModel.mockReset().mockResolvedValue({ status: "treinando" });
   api.testModel.mockReset().mockResolvedValue({ label: "aberto", confidence: 0.87 });
   api.activateModel.mockReset().mockResolvedValue({ active: false });
+  api.updateModel.mockReset().mockResolvedValue(M1);
 });
 
 describe("Training", () => {
@@ -98,8 +103,55 @@ describe("Training", () => {
     await user.selectOptions(screen.getByLabelText("câmera"), ""); // volta p/ vazio
     await user.selectOptions(screen.getByLabelText("câmera"), "1");
     await user.click(screen.getByRole("button", { name: "Criar modelo" }));
-    await waitFor(() => expect(api.createModel).toHaveBeenCalledWith(1, "novo"));
-    expect(await screen.findByRole("heading", { name: "novo" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(api.createModel).toHaveBeenCalledWith(1, "novo", ["aberto", "fechado"], "aberto"),
+    );
+    expect(await screen.findByLabelText("nome do modelo")).toHaveValue("novo");
+  });
+
+  it("creates a model with custom classes (ex.: vazamento)", async () => {
+    const created = { ...M1, id: 9, name: "pia", classes: ["vazamento", "seco"], alert_label: "vazamento" };
+    api.createModel.mockResolvedValue(created);
+    api.listModels.mockResolvedValue([created]);
+    const user = userEvent.setup();
+    render(<Training />);
+    await screen.findByRole("button", { name: "Criar modelo" });
+    await user.clear(screen.getByPlaceholderText(/nome do modelo/));
+    await user.type(screen.getByPlaceholderText(/nome do modelo/), "pia");
+    await user.selectOptions(screen.getByLabelText("câmera"), "1");
+    await user.clear(screen.getByLabelText("classes"));
+    await user.type(screen.getByLabelText("classes"), "vazamento, seco");
+    await user.click(screen.getByRole("button", { name: "Criar modelo" }));
+    await waitFor(() =>
+      expect(api.createModel).toHaveBeenCalledWith(1, "pia", ["vazamento", "seco"], "vazamento"),
+    );
+  });
+
+  it("renames the selected model", async () => {
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    const input = await screen.findByLabelText("nome do modelo");
+    await user.clear(input);
+    await user.type(input, "portão da frente");
+    await user.click(screen.getByRole("button", { name: "Renomear" }));
+    await waitFor(() =>
+      expect(api.updateModel).toHaveBeenCalledWith(1, { name: "portão da frente" }),
+    );
+  });
+
+  it("saves the alert config (label + debounce)", async () => {
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    await user.selectOptions(await screen.findByLabelText("classe de alerta"), "fechado");
+    const secs = screen.getByLabelText("segundos de espera");
+    await user.clear(secs);
+    await user.type(secs, "120");
+    await user.click(screen.getByRole("button", { name: "Salvar alerta" }));
+    await waitFor(() =>
+      expect(api.updateModel).toHaveBeenCalledWith(1, { alert_label: "fechado", debounce_seconds: 120 }),
+    );
   });
 
   it("selects model 1: live preview, gallery and active toggle", async () => {
@@ -139,7 +191,7 @@ describe("Training", () => {
     const user = userEvent.setup();
     render(<Training />);
     await user.click(await screen.findByText(/vazio · novo/));
-    await screen.findByRole("heading", { name: "vazio" });
+    expect(await screen.findByDisplayValue("vazio")).toBeInTheDocument();
     expect(screen.queryByTestId("cam-video")).toBeNull(); // câmera 99 não existe
     // sem treino → testar e ativar desabilitados; sem frames → treinar desabilitado
     expect(screen.getByRole("button", { name: "3. Ativar alerta" })).toBeDisabled();

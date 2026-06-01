@@ -146,6 +146,8 @@ export interface AIModel {
   camera_id: number;
   name: string;
   classes: string[];
+  alert_label: string;
+  debounce_seconds: number;
   crop: Crop | null;
   version: number;
   accuracy: number | null;
@@ -154,17 +156,41 @@ export interface AIModel {
   frames: Record<string, number>;
 }
 
+export interface ModelPatch {
+  name?: string;
+  alert_label?: string;
+  debounce_seconds?: number;
+}
+
 export async function listModels(): Promise<AIModel[]> {
   return (await req("/api/models")).json();
 }
 
-export async function createModel(cameraId: number, name: string): Promise<AIModel> {
+export async function createModel(
+  cameraId: number,
+  name: string,
+  classes?: string[],
+  alertLabel?: string,
+): Promise<AIModel> {
+  const body: Record<string, unknown> = { camera_id: cameraId, name };
+  if (classes) body.classes = classes;
+  if (alertLabel) body.alert_label = alertLabel;
   const res = await req("/api/models", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ camera_id: cameraId, name }),
+    body: JSON.stringify(body),
   });
   return res.json();
+}
+
+export async function updateModel(id: number, patch: ModelPatch): Promise<AIModel> {
+  return (
+    await req(`/api/models/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    })
+  ).json();
 }
 
 export async function captureFrame(id: number, label: string): Promise<{ frames: number }> {

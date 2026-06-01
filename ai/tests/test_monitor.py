@@ -63,6 +63,15 @@ def test_weights_path():
     assert monitor.weights_path(7).endswith("/7/run/weights/best.pt")
 
 
+def test_trained_checks_weights_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(monitor, "AI_DATA_DIR", str(tmp_path))
+    assert monitor._trained(1) is False
+    w = tmp_path / "1" / "run" / "weights"
+    w.mkdir(parents=True)
+    (w / "best.pt").write_bytes(b"x")
+    assert monitor._trained(1) is True
+
+
 # ---- login / post_event / cycle (httpx via respx) ----
 
 @respx.mock
@@ -169,6 +178,7 @@ def test_cycle_handles_model_error(monkeypatch, capsys):
 @respx.mock
 def test_cycle_skips_untrained_model(monkeypatch, capsys):
     # modelo ativo mas sem best.pt ainda → pula sem poluir o log e sem buscar frame
+    monkeypatch.setattr(monitor, "_trained", lambda mid: False)
     respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
         return_value=httpx.Response(200, json=[{"id": 1, "camera_id": 1, "active": True, "crop": None}])
     )
@@ -215,7 +225,60 @@ def test_post_event():
     assert route.called
 
 
+@respx.mock
+def test_cycle_uses_per_model_alert_and_debounce(monkeypatch):
+    # modelo com alert_label/debounce próprios → dispara nesse label, com debounce 0
+    monkeypatch.setattr(monitor, "_trained", lambda mid: True)
+    monkeypatch.setattr(monitor, "classify", lambda w, j, c: ("vazamento", 0.95))
+    respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
+        return_value=httpx.Response(200, json=[
+            {"id": 1, "camera_id": 1, "active": True, "crop": None,
+             "alert_label": "vazamento", "debounce_seconds": 0},
+        ])
+    )
+    respx.get(f"{monitor.BACKEND_URL}/api/cameras").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "name": "pia"}])
+    )
+    respx.get(f"{monitor.GO2RTC_URL}/api/frame.jpeg").mock(
+        return_value=httpx.Response(200, content=b"jpeg")
+    )
+    events = respx.post(f"{monitor.BACKEND_URL}/api/events").mock(
+        return_value=httpx.Response(201, json={"id": 1})
+    )
+    with httpx.Client() as client:
+        monitor.cycle(client, "tok", {})
+    assert events.called  # disparou no label "vazamento", não no "aberto" global
+
+
+@respx.mock
+def test_cycle_raises_on_backend_error():
+    # backend 500 vira HTTPError (raise_for_status), não JSONDecodeError opaco
+    respx.get(f"{monitor.BACKEND_URL}/api/models").mock(return_value=httpx.Response(500))
+    with httpx.Client() as client:
+        try:
+            monitor.cycle(client, "tok", {})
+            raised = False
+        except httpx.HTTPError:
+            raised = True
+    assert raised
+
+
 # ---- run() (loop) ----
+
+def test_run_logs_cycle_error_then_exits(monkeypatch, capsys):
+    # um ciclo que falha (backend caiu) é logado e o loop segue até o KeyboardInterrupt
+    monkeypatch.setattr(monitor, "login", lambda client: "tok")
+
+    def _boom(c, t, d):
+        raise httpx.ConnectError("backend fora")
+
+    monkeypatch.setattr(monitor, "cycle", _boom)
+    monkeypatch.setattr(monitor.time, "sleep", lambda _s: (_ for _ in ()).throw(KeyboardInterrupt()))
+    monitor.run()
+    out = capsys.readouterr().out
+    assert "ciclo falhou" in out
+    assert "encerrado" in out
+
 
 def test_run_loops_then_exits(monkeypatch, capsys):
     monkeypatch.setattr(monitor, "login", lambda client: "tok")

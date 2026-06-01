@@ -12,6 +12,7 @@ import {
   setModelCrop,
   testModel,
   trainModel,
+  updateModel,
   type AIModel,
   type Camera,
   type TestResult,
@@ -34,7 +35,11 @@ export default function Training() {
   const [error, setError] = useState("");
   const [newName, setNewName] = useState("portao");
   const [newCameraId, setNewCameraId] = useState<number | "">("");
+  const [newClasses, setNewClasses] = useState("aberto, fechado");
   const [crop, setCrop] = useState({ x1: "0", y1: "0", x2: "0", y2: "0" });
+  const [nameEdit, setNameEdit] = useState("");
+  const [alertLabel, setAlertLabel] = useState("");
+  const [debounce, setDebounce] = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const nav = useNavigate();
 
@@ -88,15 +93,40 @@ export default function Training() {
       x2: String(model.crop?.x2 ?? 0),
       y2: String(model.crop?.y2 ?? 0),
     });
+    setNameEdit(model.name);
+    setAlertLabel(model.alert_label);
+    setDebounce(String(model.debounce_seconds));
+    setTestResult(null);
     loadFrames(model.id);
   }
 
   function onCreate(e: React.FormEvent) {
     e.preventDefault();
     return run(async () => {
-      const created = await createModel(Number(newCameraId), newName);
+      const classes = newClasses
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean);
+      const created = await createModel(Number(newCameraId), newName, classes, classes[0]);
       await refresh();
       onSelect(created);
+    });
+  }
+
+  function onRename() {
+    return run(async () => {
+      await updateModel(selected!.id, { name: nameEdit.trim() });
+      await refresh();
+    });
+  }
+
+  function onSaveAlert() {
+    return run(async () => {
+      await updateModel(selected!.id, {
+        alert_label: alertLabel,
+        debounce_seconds: Number(debounce),
+      });
+      await refresh();
     });
   }
 
@@ -173,8 +203,19 @@ export default function Training() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          <input
+            aria-label="classes"
+            placeholder="classes (ex.: aberto, fechado)"
+            value={newClasses}
+            onChange={(e) => setNewClasses(e.target.value)}
+            required
+          />
           <button>Criar modelo</button>
         </form>
+        <p className="hint">
+          As classes são os rótulos que a IA aprende (ex.: <code>aberto, fechado</code> ou{" "}
+          <code>vazamento, seco</code>). A 1ª vira o gatilho do alerta — dá pra trocar depois.
+        </p>
 
         <div className="model-list">
           {models.map((m) => (
@@ -191,7 +232,20 @@ export default function Training() {
 
         {selected && (
           <section className="model-detail">
-            <h2>{selected.name}</h2>
+            <div className="cam-form">
+              <input
+                aria-label="nome do modelo"
+                value={nameEdit}
+                onChange={(e) => setNameEdit(e.target.value)}
+              />
+              <AsyncButton
+                className="ghost"
+                disabled={!nameEdit.trim() || nameEdit.trim() === selected.name}
+                onClick={onRename}
+              >
+                Renomear
+              </AsyncButton>
+            </div>
             {previewName && (
               <div className="cam-card">
                 <div className="video">
@@ -236,6 +290,51 @@ export default function Training() {
                 />
               ))}
               <AsyncButton className="ghost" onClick={onSaveCrop}>Salvar crop</AsyncButton>
+            </div>
+
+            <div className="alert-config">
+              <h3>🔔 Quando disparar o alerta</h3>
+              <div className="cam-form">
+                <label className="check">
+                  ao detectar
+                  <select
+                    aria-label="classe de alerta"
+                    value={alertLabel}
+                    onChange={(e) => setAlertLabel(e.target.value)}
+                  >
+                    {selected.classes.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="check">
+                  por mais de
+                  <input
+                    type="number"
+                    aria-label="segundos de espera"
+                    min={0}
+                    value={debounce}
+                    onChange={(e) => setDebounce(e.target.value)}
+                  />
+                  s seguidos
+                </label>
+                <AsyncButton
+                  className="ghost"
+                  disabled={
+                    alertLabel === selected.alert_label &&
+                    Number(debounce) === selected.debounce_seconds
+                  }
+                  onClick={onSaveAlert}
+                >
+                  Salvar alerta
+                </AsyncButton>
+              </div>
+              <p className="hint">
+                Dispara quando a câmera mostrar <strong>{selected.alert_label}</strong> de
+                forma contínua por <strong>{selected.debounce_seconds}s</strong> (confiança
+                ≥ 80%) e o monitor estiver <strong>ativo</strong>. Abrir e fechar rápido
+                (menos que isso) <strong>não</strong> notifica.
+              </p>
             </div>
 
             <div className="status-line">

@@ -102,16 +102,29 @@ def _process_model(client, token, model, name_by_id, debouncers) -> None:
     label, conf = classify(weights_path(model["id"]), jpeg, model["crop"])
     if conf < THRESHOLD:
         return
-    deb = debouncers.setdefault(model["id"], Debouncer(ALERT_LABEL, DEBOUNCE))
+    # config por modelo (vinda do backend); cai no env se ausente (modelo antigo)
+    alert = model.get("alert_label") or ALERT_LABEL
+    hold = model.get("debounce_seconds")
+    if hold is None:
+        hold = DEBOUNCE
+    deb = debouncers.setdefault(model["id"], Debouncer(alert, hold))
+    deb.alert_label = alert  # reflete mudanças feitas na UI sem reiniciar
+    deb.hold = hold
     if deb.update(label, time.time()):
         post_event(client, token, model["id"], label, jpeg)
+
+
+def _get_json(client, url, headers):
+    resp = client.get(url, headers=headers)
+    resp.raise_for_status()  # 500/4xx vira HTTPError legível, não JSONDecodeError
+    return resp.json()
 
 
 def cycle(client: httpx.Client, token: str, debouncers: dict) -> None:
     """Uma varredura. Erro num modelo é logado e não derruba os demais/o loop."""
     headers = {"Authorization": f"Bearer {token}"}
-    models = client.get(f"{BACKEND_URL}/api/models", headers=headers).json()
-    cameras = client.get(f"{BACKEND_URL}/api/cameras", headers=headers).json()
+    models = _get_json(client, f"{BACKEND_URL}/api/models", headers)
+    cameras = _get_json(client, f"{BACKEND_URL}/api/cameras", headers)
     name_by_id = {c["id"]: c["name"] for c in cameras}
 
     for model in models:
@@ -130,7 +143,11 @@ def run():
         with httpx.Client(timeout=10) as client:
             token = login(client)
             while True:
-                cycle(client, token, debouncers)
+                try:
+                    cycle(client, token, debouncers)
+                except httpx.HTTPError as exc:
+                    # backend reiniciando / 500 / rede — loga e tenta no próximo ciclo
+                    print(f"[sentinela-ai] ciclo falhou: {exc}")
                 time.sleep(INTERVAL)
     except KeyboardInterrupt:
         print("\n[sentinela-ai] encerrado.")

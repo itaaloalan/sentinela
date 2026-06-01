@@ -9,11 +9,12 @@ import json
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from . import frames, inference, training
 from .auth import current_user, media_user
+from .config import settings
 from .database import get_session
 from .db_models import AIModel, Camera
 from .go2rtc import grab_frame
@@ -25,6 +26,13 @@ class ModelIn(BaseModel):
     camera_id: int
     name: str = "portao"
     classes: list[str] = ["aberto", "fechado"]
+    alert_label: str | None = None  # qual classe dispara o alerta (default: 1ª)
+
+
+class ModelPatch(BaseModel):
+    name: str | None = None
+    alert_label: str | None = None
+    debounce_seconds: int | None = Field(default=None, ge=0, le=3600)
 
 
 class Crop(BaseModel):
@@ -45,6 +53,10 @@ def _serialize(rec: AIModel) -> dict:
         "camera_id": rec.camera_id,
         "name": rec.name,
         "classes": classes,
+        "alert_label": rec.alert_label or classes[0],
+        "debounce_seconds": rec.debounce_seconds
+        if rec.debounce_seconds is not None
+        else settings.ai_open_debounce_seconds,
         "crop": json.loads(rec.crop_json) if rec.crop_json else None,
         "version": rec.version,
         "accuracy": rec.accuracy,
@@ -67,7 +79,13 @@ def create_model(
     _: str = Depends(current_user),
     session: Session = Depends(get_session),
 ):
-    rec = AIModel(camera_id=m.camera_id, name=m.name, classes_csv=",".join(m.classes))
+    alert_label = m.alert_label if m.alert_label in m.classes else m.classes[0]
+    rec = AIModel(
+        camera_id=m.camera_id,
+        name=m.name,
+        classes_csv=",".join(m.classes),
+        alert_label=alert_label,
+    )
     session.add(rec)
     session.commit()
     session.refresh(rec)
@@ -141,6 +159,32 @@ def delete_model_frame(
     _get(session, mid)
     frames.delete_frame(mid, label, filename)
     return Response(status_code=204)
+
+
+@router.put("/{mid}")
+def update_model(
+    mid: int,
+    patch: ModelPatch,
+    _: str = Depends(current_user),
+    session: Session = Depends(get_session),
+):
+    """Edita nome e/ou a configuração de alerta (label que dispara + tempo)."""
+    rec = _get(session, mid)
+    if patch.name is not None:
+        name = patch.name.strip()
+        if not name:
+            raise HTTPException(400, "nome não pode ser vazio")
+        rec.name = name
+    if patch.alert_label is not None:
+        if patch.alert_label not in _classes(rec):
+            raise HTTPException(400, f"alert_label deve ser uma de {_classes(rec)}")
+        rec.alert_label = patch.alert_label
+    if patch.debounce_seconds is not None:
+        rec.debounce_seconds = patch.debounce_seconds
+    session.add(rec)
+    session.commit()
+    session.refresh(rec)
+    return _serialize(rec)
 
 
 @router.put("/{mid}/crop")

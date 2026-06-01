@@ -122,6 +122,97 @@ def test_delete_frame(client, auth_headers):
     assert after["fechado"] == []
 
 
+def test_create_defaults_alert_label_and_debounce(client, auth_headers):
+    cid = _make_camera()
+    model = _create_model(client, auth_headers, cid)
+    assert model["alert_label"] == "aberto"  # 1ª classe por padrão
+    assert model["debounce_seconds"] == settings.ai_open_debounce_seconds
+
+
+def test_create_with_custom_classes_and_alert_label(client, auth_headers):
+    cid = _make_camera()
+    resp = client.post(
+        "/api/models",
+        json={
+            "camera_id": cid,
+            "name": "vazamento pia",
+            "classes": ["vazamento", "seco"],
+            "alert_label": "vazamento",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["classes"] == ["vazamento", "seco"]
+    assert body["alert_label"] == "vazamento"
+
+
+def test_create_invalid_alert_label_falls_back_to_first(client, auth_headers):
+    cid = _make_camera()
+    resp = client.post(
+        "/api/models",
+        json={"camera_id": cid, "classes": ["a", "b"], "alert_label": "zzz"},
+        headers=auth_headers,
+    )
+    assert resp.json()["alert_label"] == "a"
+
+
+def test_update_model_renames(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    resp = client.put(f"/api/models/{mid}", json={"name": "  novo nome  "}, headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "novo nome"
+
+
+def test_update_model_rejects_empty_name(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    resp = client.put(f"/api/models/{mid}", json={"name": "   "}, headers=auth_headers)
+    assert resp.status_code == 400
+
+
+def test_update_model_sets_alert_config(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    resp = client.put(
+        f"/api/models/{mid}",
+        json={"alert_label": "fechado", "debounce_seconds": 120},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["alert_label"] == "fechado"
+    assert resp.json()["debounce_seconds"] == 120
+
+
+def test_update_model_rejects_alert_label_outside_classes(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    resp = client.put(f"/api/models/{mid}", json={"alert_label": "zzz"}, headers=auth_headers)
+    assert resp.status_code == 400
+
+
+def test_update_model_rejects_out_of_range_debounce(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+    resp = client.put(f"/api/models/{mid}", json={"debounce_seconds": 99999}, headers=auth_headers)
+    assert resp.status_code == 422  # Field(le=3600)
+
+
+def test_update_model_not_found(client, auth_headers):
+    resp = client.put("/api/models/9999", json={"name": "x"}, headers=auth_headers)
+    assert resp.status_code == 404
+
+
+def test_update_model_empty_patch_keeps_values(client, auth_headers):
+    cid = _make_camera()
+    created = _create_model(client, auth_headers, cid)
+    resp = client.put(f"/api/models/{created['id']}", json={}, headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["name"] == created["name"]
+    assert resp.json()["alert_label"] == created["alert_label"]
+
+
 def test_set_crop(client, auth_headers):
     cid = _make_camera()
     mid = _create_model(client, auth_headers, cid)["id"]

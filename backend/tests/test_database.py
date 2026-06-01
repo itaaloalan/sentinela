@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from sqlmodel import Session, select
+from sqlalchemy import create_engine, inspect, text
+from sqlmodel import Session, SQLModel, select
 
 from app import database
 from app.db_models import User
@@ -37,3 +38,16 @@ def test_init_db_idempotent():
     database.init_db()
     with Session(database.engine) as session:
         assert len(session.exec(select(User)).all()) == 1
+
+
+def test_migrate_adds_missing_columns(tmp_path):
+    # simula um banco antigo sem a coluna alert_label e confirma que _migrate a recria
+    eng = create_engine(
+        f"sqlite:///{tmp_path}/old.db", connect_args={"check_same_thread": False}
+    )
+    SQLModel.metadata.create_all(eng)
+    with eng.begin() as conn:
+        conn.execute(text('ALTER TABLE aimodel DROP COLUMN alert_label'))
+    assert "alert_label" not in {c["name"] for c in inspect(eng).get_columns("aimodel")}
+    database._migrate(eng)  # readiciona a coluna que falta
+    assert "alert_label" in {c["name"] for c in inspect(eng).get_columns("aimodel")}

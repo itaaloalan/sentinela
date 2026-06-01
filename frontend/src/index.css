@@ -215,6 +215,10 @@ select {
 .badge-err { background: #4c0519; color: #fda4af; }
 .badge-new { background: var(--border); color: var(--muted); }
 .test-result { color: var(--accent); font-weight: 600; }
+.alert-config { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+.alert-config h3 { margin: 0 0 0.6rem; }
+.alert-config select, .alert-config input[type="number"] { width: auto; margin: 0; }
+.alert-config input[type="number"] { width: 5rem; }
 .actions { display: flex; flex-wrap: wrap; gap: 1rem; }
 .action { display: flex; flex-direction: column; gap: 0.3rem; max-width: 16rem; }
 .action button { width: auto; margin: 0; }
