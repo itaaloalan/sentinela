@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { CropEditor } from "./CropEditor";
 
 // jsdom não calcula layout: simulamos a geometria do palco e o tamanho natural
@@ -58,6 +59,31 @@ describe("CropEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar recorte" }));
     expect(onSave).toHaveBeenCalledWith({ x1: 0, y1: 0, x2: 200, y2: 150 });
     await screen.findByText(/✓ recorte salvo/); // aguarda o estado assíncrono assentar
+  });
+
+  it('"Ver recorte" overlays the saved crop after the image loads', async () => {
+    const user = userEvent.setup();
+    render(<CropEditor src="/snap.jpg" crop={{ x1: 480, y1: 0, x2: 960, y2: 540 }} onSave={vi.fn()} />);
+    const img = screen.getByAltText("quadro da câmera");
+    Object.defineProperty(img, "naturalWidth", { configurable: true, value: 1920 });
+    Object.defineProperty(img, "naturalHeight", { configurable: true, value: 1080 });
+
+    // antes de carregar a imagem (sem nat), o overlay não aparece mesmo ligado
+    await user.click(screen.getByRole("button", { name: "👁 Ver recorte" }));
+    expect(screen.queryByTestId("saved-rect")).toBeNull();
+
+    fireEvent.load(img); // agora temos as dimensões naturais
+    const rect = await screen.findByTestId("saved-rect");
+    expect(rect).toHaveStyle({ left: "25%", width: "25%", top: "0%", height: "50%" });
+
+    // alterna de volta para ocultar
+    await user.click(screen.getByRole("button", { name: "Ocultar recorte" }));
+    expect(screen.queryByTestId("saved-rect")).toBeNull();
+  });
+
+  it("has no 'Ver recorte' button when there is no saved crop", () => {
+    render(<CropEditor src="/snap.jpg" crop={null} onSave={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Ver recorte/ })).toBeNull();
   });
 
   it("ignores pointer move when no drag is in progress", () => {

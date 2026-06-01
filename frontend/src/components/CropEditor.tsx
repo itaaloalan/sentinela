@@ -24,6 +24,19 @@ export function CropEditor({
   const start = useRef<{ x: number; y: number } | null>(null);
   const [sel, setSel] = useState<Rect | null>(null);
   const [saved, setSaved] = useState("");
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
+  const [showCrop, setShowCrop] = useState(false);
+
+  // posição do recorte salvo em % do quadro (pra desenhar sobre a imagem)
+  function savedRectStyle(): React.CSSProperties | null {
+    if (!crop || !nat) return null;
+    return {
+      left: `${(crop.x1 / nat.w) * 100}%`,
+      top: `${(crop.y1 / nat.h) * 100}%`,
+      width: `${((crop.x2 - crop.x1) / nat.w) * 100}%`,
+      height: `${((crop.y2 - crop.y1) / nat.h) * 100}%`,
+    };
+  }
 
   function at(e: React.PointerEvent) {
     const r = stageRef.current!.getBoundingClientRect();
@@ -73,6 +86,8 @@ export function CropEditor({
     setSaved(`✓ recorte salvo: (${c.x1},${c.y1}) → (${c.x2},${c.y2})`);
   }
 
+  const savedRect = showCrop ? savedRectStyle() : null;
+
   return (
     <div className="crop-editor">
       <div
@@ -82,13 +97,22 @@ export function CropEditor({
         onPointerMove={move}
         onPointerUp={up}
       >
-        <img ref={imgRef} src={src} alt="quadro da câmera" draggable={false} />
+        <img
+          ref={imgRef}
+          src={src}
+          alt="quadro da câmera"
+          draggable={false}
+          onLoad={(e) =>
+            setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
+          }
+        />
         {sel && (
           <div
             className="crop-rect"
             style={{ left: sel.x, top: sel.y, width: sel.w, height: sel.h }}
           />
         )}
+        {savedRect && <div className="crop-rect saved" data-testid="saved-rect" style={savedRect} />}
       </div>
       <div className="crop-actions">
         <span className={saved ? "hint crop-saved" : "hint"}>
@@ -103,6 +127,11 @@ export function CropEditor({
         <AsyncButton className="primary" disabled={!sel} onClick={save}>
           Salvar recorte
         </AsyncButton>
+        {crop && (
+          <button type="button" className="ghost" onClick={() => setShowCrop((v) => !v)}>
+            {showCrop ? "Ocultar recorte" : "👁 Ver recorte"}
+          </button>
+        )}
       </div>
     </div>
   );

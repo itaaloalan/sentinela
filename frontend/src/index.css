@@ -243,6 +243,7 @@ select {
 .crop-stage { position: relative; width: 100%; background: #000; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; touch-action: none; cursor: crosshair; }
 .crop-stage img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
 .crop-rect { position: absolute; border: 2px solid var(--accent); background: rgba(34, 211, 238, 0.18); pointer-events: none; }
+.crop-rect.saved { border: 2px dashed #6ee7b7; background: rgba(110, 231, 183, 0.15); }
 .crop-actions { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
 .crop-actions button { width: auto; margin: 0; }
 .crop-saved { color: #6ee7b7; font-weight: 600; }
