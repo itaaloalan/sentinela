@@ -242,7 +242,13 @@ button.primary:disabled { opacity: 0.5; }
 .notify-steps { display: flex; flex-direction: column; gap: 0.8rem; padding-left: 1.2rem; }
 .notify-topic { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; flex-wrap: wrap; }
 .notify-topic code { font-size: 0.95rem; word-break: break-all; }
+.notify-topic input { flex: 1 1 16rem; margin: 0; }
 .notify-topic button { width: auto; margin: 0; padding: 0.3rem 0.7rem; }
+.notify-field { display: flex; flex-direction: column; gap: 0.5rem; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+.notify-field label { color: var(--muted); font-size: 0.85rem; }
+.notify-actions { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+.notify-actions button { width: auto; margin: 0; }
+.notify-sent { color: #6ee7b7; font-size: 0.9rem; }
 .notify-cmd {
   background: #0b1220;
   border: 1px solid var(--border);

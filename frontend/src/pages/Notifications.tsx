@@ -1,18 +1,61 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getNotifyConfig, type NotifyConfig } from "../lib/api";
+import {
+  getNotifyConfig,
+  sendTestNotification,
+  setNotifyTopic,
+  type NotifyConfig,
+} from "../lib/api";
+import { AsyncButton } from "../components/AsyncButton";
+
+function randomTopic(): string {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `sentinela-${hex}`;
+}
 
 export default function Notifications() {
   const [cfg, setCfg] = useState<NotifyConfig | null>(null);
+  const [topic, setTopic] = useState("");
   const [error, setError] = useState("");
+  const [testMsg, setTestMsg] = useState("");
   const [copied, setCopied] = useState(false);
   const nav = useNavigate();
 
   useEffect(() => {
     getNotifyConfig()
-      .then(setCfg)
+      .then((c) => {
+        setCfg(c);
+        setTopic(c.topic);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "Erro"));
   }, []);
+
+  async function run(fn: () => Promise<void>) {
+    setError("");
+    setTestMsg("");
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro");
+    }
+  }
+
+  function save() {
+    return run(async () => {
+      const c = await setNotifyTopic(topic.trim());
+      setCfg(c);
+      setTopic(c.topic);
+    });
+  }
+
+  function sendTest() {
+    return run(async () => {
+      const r = await sendTestNotification();
+      setTestMsg(`Enviado para "${r.topic}" — veja a notificação no celular.`);
+    });
+  }
 
   function copy(text: string) {
     return navigator.clipboard.writeText(text).then(() => {
@@ -20,6 +63,8 @@ export default function Notifications() {
       setTimeout(() => setCopied(false), 1500);
     });
   }
+
+  const dirty = cfg !== null && topic.trim() !== cfg.topic;
 
   return (
     <>
@@ -34,47 +79,57 @@ export default function Notifications() {
             <p>
               O alerta de portão aberto chega no seu iPhone pelo app <strong>ntfy</strong>{" "}
               (gratuito). Não há servidor pra configurar — o {cfg.server} entrega o push.
-              Faça uma vez:
             </p>
 
             {!cfg.configured && (
               <div className="error">
-                ⚠️ O tópico atual parece ser o placeholder ou é curto demais. Troque{" "}
-                <code>NTFY_TOPIC</code> no <code>.env</code> por algo secreto e
-                aleatório, reinicie o backend e assine o novo tópico no app.
+                ⚠️ O tópico atual parece ser o placeholder ou é curto demais. Gere um
+                novo abaixo e salve.
               </div>
             )}
 
+            <div className="notify-field">
+              <label htmlFor="topic">Tópico (sua "chave" secreta)</label>
+              <div className="notify-topic">
+                <input
+                  id="topic"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  spellCheck={false}
+                />
+                <button type="button" className="ghost" onClick={() => setTopic(randomTopic())}>
+                  Gerar aleatório
+                </button>
+                <button type="button" className="ghost" onClick={() => copy(cfg.topic)}>
+                  {copied ? "copiado ✓" : "copiar atual"}
+                </button>
+              </div>
+              <div className="notify-actions">
+                <AsyncButton className="primary" disabled={!dirty} onClick={save}>
+                  Salvar tópico
+                </AsyncButton>
+                {dirty && <span className="hint">alteração não salva</span>}
+                <AsyncButton className="ghost" onClick={sendTest}>
+                  Enviar teste
+                </AsyncButton>
+              </div>
+              {testMsg && <div className="notify-sent">{testMsg}</div>}
+            </div>
+
             <ol className="notify-steps">
+              <li>Instale o app <strong>ntfy</strong> na App Store (iOS) ou Play Store.</li>
               <li>
-                Instale o app <strong>ntfy</strong> na App Store (iOS) ou Play Store.
+                No app, toque em <strong>+ → Subscribe to topic</strong>, deixe o servidor
+                como <code>{cfg.server}</code> e assine exatamente o tópico salvo acima.
               </li>
-              <li>
-                No app, toque em <strong>+ → Subscribe to topic</strong>, deixe o
-                servidor como <code>{cfg.server}</code> e assine exatamente este tópico:
-                <div className="notify-topic">
-                  <code>{cfg.topic}</code>
-                  <button className="ghost" onClick={() => copy(cfg.topic)}>
-                    {copied ? "copiado ✓" : "copiar"}
-                  </button>
-                </div>
-              </li>
-              <li>Permita notificações quando o iOS pedir.</li>
+              <li>Permita notificações quando o iOS pedir, e toque em "Enviar teste".</li>
             </ol>
 
             <p className="hint">
-              Teste rápido (depois de assinar): rode no terminal e veja chegar no
-              celular —
-            </p>
-            <pre className="notify-cmd">
-              curl -d "teste do sentinela" {cfg.server}/{cfg.topic}
-            </pre>
-
-            <p className="hint">
-              ⚠️ No <code>{cfg.server}</code> público, quem souber o nome do tópico vê
-              suas notificações e fotos. Mantenha o tópico secreto. O link da foto na
-              notificação usa <code>{cfg.app_public_url}</code> — pra abrir fora de
-              casa, use uma URL acessível (ex.: seu IP do Tailscale).
+              ⚠️ No <code>{cfg.server}</code> público, quem souber o tópico vê suas
+              notificações e fotos — mantenha-o secreto. O link da foto usa{" "}
+              <code>{cfg.app_public_url}</code>; pra abrir fora de casa, use uma URL
+              acessível (ex.: seu IP do Tailscale).
             </p>
           </div>
         )}

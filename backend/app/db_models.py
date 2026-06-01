@@ -48,6 +48,13 @@ class AIModel(SQLModel, table=True):
     status: str = "novo"              # novo | treinando | pronto | erro
 
 
+class Setting(SQLModel, table=True):
+    """Configuração editável em runtime (ex.: tópico do ntfy), sobrepõe o .env."""
+
+    key: str = Field(primary_key=True)
+    value: str
+
+
 class Event(SQLModel, table=True):
     """Evento detectado pelo monitor (ex.: portão aberto). Snapshot em disco."""
 

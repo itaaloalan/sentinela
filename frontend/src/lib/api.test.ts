@@ -10,6 +10,8 @@ import {
   discoverCameras,
   eventSnapshotUrl,
   getNotifyConfig,
+  sendTestNotification,
+  setNotifyTopic,
   listEvents,
   listCameras,
   listModelFrames,
@@ -308,5 +310,25 @@ describe("AI model API", () => {
     fetchMock.mockResolvedValue(mockResponse({ json: cfg }));
     expect(await getNotifyConfig()).toEqual(cfg);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/notify/config");
+  });
+
+  it("setNotifyTopic PUTs the topic as JSON", async () => {
+    auth.token = "t";
+    const cfg = { server: "s", topic: "novo", app_public_url: "u", configured: true };
+    fetchMock.mockResolvedValue(mockResponse({ json: cfg }));
+    expect(await setNotifyTopic("novo")).toEqual(cfg);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/notify/config");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ topic: "novo" });
+  });
+
+  it("sendTestNotification POSTs /api/notify/test", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { sent: true, topic: "x" } }));
+    expect(await sendTestNotification()).toEqual({ sent: true, topic: "x" });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/notify/test");
+    expect(init.method).toBe("POST");
   });
 });

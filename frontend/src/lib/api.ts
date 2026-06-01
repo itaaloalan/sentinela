@@ -256,3 +256,17 @@ export interface NotifyConfig {
 export async function getNotifyConfig(): Promise<NotifyConfig> {
   return (await req("/api/notify/config")).json();
 }
+
+export async function setNotifyTopic(topic: string): Promise<NotifyConfig> {
+  return (
+    await req("/api/notify/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic }),
+    })
+  ).json();
+}
+
+export async function sendTestNotification(): Promise<{ sent: boolean; topic: string }> {
+  return (await req("/api/notify/test", { method: "POST" })).json();
+}
