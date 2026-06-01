@@ -38,6 +38,9 @@ describe("CameraVideo", () => {
     container.querySelector("video-stream")!.appendChild(video);
     await user.click(screen.getByRole("button", { name: "Ativar som" }));
     expect(video.muted).toBe(false);
+    // toca sempre: playsinline ligado e sem controles nativos (play no mobile)
+    expect(video.playsInline).toBe(true);
+    expect(video.controls).toBe(false);
     expect(screen.getByRole("button", { name: "Mutar" })).toBeInTheDocument();
   });
 

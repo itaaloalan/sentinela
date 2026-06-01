@@ -36,8 +36,13 @@ export function CameraVideo({
   }, [name, talking]);
 
   useEffect(() => {
-    const video = (ref.current as HTMLElement).querySelector("video");
-    if (video) (video as HTMLVideoElement).muted = muted;
+    const video = (ref.current as HTMLElement).querySelector("video") as HTMLVideoElement | null;
+    if (!video) return;
+    video.muted = muted;
+    // toca sempre, sem controles/play nativo (o play aparecia no mobile).
+    video.playsInline = true;
+    video.autoplay = true;
+    video.controls = false;
   }, [muted]);
 
   function toggleFullscreen() {

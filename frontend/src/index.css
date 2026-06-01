@@ -89,6 +89,15 @@ main { padding: 1rem; max-width: 1100px; margin: 0 auto; }
   object-fit: contain;
   background: #000;
 }
+/* o vídeo toca sempre: esconde o overlay/botão de play nativo (mobile/iOS) e
+   impede que um toque pause/abra controles nativos. */
+.cam-video-wrap video::-webkit-media-controls,
+.cam-video-wrap video::-webkit-media-controls-start-playback-button,
+.cam-video-wrap video::-webkit-media-controls-overlay-play-button,
+.cam-video-wrap video::-webkit-media-controls-panel {
+  display: none !important;
+  -webkit-appearance: none;
+}
 .ptz-pad {
   position: absolute;
   bottom: 8px;
