@@ -1,22 +1,28 @@
-"""Status dos subsistemas (backend, go2rtc, IA) pra UI mostrar sempre.
+"""Status e saúde dos subsistemas (backend, go2rtc, IA) + dashboard.
 
-- backend: se respondeu, está no ar (True).
-- go2rtc: ping no /api/streams.
-- ai: o monitor (processo separado) faz heartbeat aqui a cada ciclo; consideramos
-  online se o último sinal foi há menos de _AI_FRESH_SECONDS.
+- `/api/status`: pílula leve sempre visível (backend/go2rtc/IA up?).
+- `/api/status/health`: visão de saúde/dashboard — eventos do dia, disco,
+  temperatura, câmeras online/offline e logs por serviço ("o que está
+  acontecendo"). O monitor de IA faz heartbeat aqui a cada ciclo.
 """
+import datetime as dt
+import shutil
 import time
 
 import httpx
 from fastapi import APIRouter, Depends
+from sqlmodel import Session, select
 
-from . import settings_store
+from . import applog, settings_store
 from .auth import current_user
 from .config import settings
+from .database import get_session
+from .db_models import Camera, Event
 
 router = APIRouter(prefix="/api/status", tags=["status"])
 
 _AI_FRESH_SECONDS = 30
+_TEMP_PATH = "/sys/class/thermal/thermal_zone0/temp"
 
 
 def _now() -> float:
@@ -39,9 +45,86 @@ def _ai_ok() -> bool:
     return _now() - float(raw) < _AI_FRESH_SECONDS
 
 
+async def _go2rtc_streams() -> dict | None:
+    """Streams do go2rtc; None se inacessível (distingue 'fora' de 'sem streams')."""
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            resp = await client.get(f"{settings.go2rtc_url}/api/streams")
+        resp.raise_for_status()
+        return resp.json()
+    except httpx.HTTPError:
+        return None
+
+
+async def _go2rtc_log() -> list[str]:
+    """Últimas linhas do log do go2rtc (endpoint /api/log)."""
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            resp = await client.get(f"{settings.go2rtc_url}/api/log")
+        resp.raise_for_status()
+    except httpx.HTTPError:
+        return []
+    return resp.text.splitlines()[-100:]
+
+
+def _disk() -> dict | None:
+    """Uso do disco no diretório de dados; None se o caminho não existir."""
+    try:
+        usage = shutil.disk_usage(settings.ai_data_dir)
+    except OSError:
+        return None
+    percent = round(usage.used / usage.total * 100, 1) if usage.total else 0.0
+    return {"total": usage.total, "used": usage.used, "free": usage.free, "percent": percent}
+
+
+def _cpu_temp() -> float | None:
+    """Temperatura da CPU (°C) via thermal_zone0 do Linux; None se indisponível."""
+    try:
+        with open(_TEMP_PATH) as fh:
+            return round(int(fh.read().strip()) / 1000, 1)
+    except (OSError, ValueError):
+        return None
+
+
+def _events_today(session: Session) -> int:
+    start = dt.datetime.now(dt.timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    return len(session.exec(select(Event).where(Event.created_at >= start)).all())
+
+
+def _camera_status(streams: dict, session: Session) -> list[dict]:
+    """Cada câmera cadastrada + se o go2rtc tem um produtor ativo (online)."""
+    out = []
+    for cam in session.exec(select(Camera)).all():
+        info = streams.get(cam.name)
+        online = bool(info and info.get("producers"))
+        out.append({"name": cam.name, "online": online})
+    return out
+
+
 @router.get("")
 async def status(_: str = Depends(current_user)):
     return {"backend": True, "go2rtc": await _go2rtc_ok(), "ai": _ai_ok()}
+
+
+@router.get("/health")
+async def health(
+    _: str = Depends(current_user),
+    session: Session = Depends(get_session),
+):
+    raw = settings_store.ai_heartbeat()
+    last_seen = (_now() - float(raw)) if raw else None
+    streams = await _go2rtc_streams()
+    return {
+        "events_today": _events_today(session),
+        "disk": _disk(),
+        "temperature_c": _cpu_temp(),
+        "cameras": _camera_status(streams or {}, session),
+        "go2rtc": {"reachable": streams is not None, "log": await _go2rtc_log()},
+        "ai": {"online": _ai_ok(), "last_seen_seconds": last_seen},
+        "backend": {"log": applog.recent()},
+    }
 
 
 @router.post("/heartbeat")

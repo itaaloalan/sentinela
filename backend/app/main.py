@@ -4,13 +4,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import access, auth, cameras, events, notifications, status
+from . import access, applog, auth, cameras, events, notifications, status
 from . import models as ai_models
 from .database import init_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    applog.install()  # captura os logs do backend pra exibir no diagnóstico
     init_db()
     yield
 
