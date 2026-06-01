@@ -293,20 +293,55 @@ def test_run_logs_cycle_error_then_exits(monkeypatch, capsys):
     monkeypatch.setattr(monitor.time, "sleep", lambda _s: (_ for _ in ()).throw(KeyboardInterrupt()))
     monitor.run()
     out = capsys.readouterr().out
-    assert "ciclo falhou" in out
+    assert "backend indisponível" in out
     assert "encerrado" in out
 
 
-def test_run_loops_then_exits(monkeypatch, capsys):
-    monkeypatch.setattr(monitor, "login", lambda client: "tok")
+def test_run_retries_login_when_backend_down(monkeypatch, capsys):
+    # backend fora no boot → login levanta; não morre, tenta de novo no próximo ciclo
+    calls = {"login": 0}
+
+    def _login(client):
+        calls["login"] += 1
+        if calls["login"] == 1:
+            raise httpx.ConnectError("connection refused")
+        return "tok"
+
+    monkeypatch.setattr(monitor, "login", _login)
     monkeypatch.setattr(monitor, "_heartbeat", lambda c, t: None)
     seen = {"cycles": 0}
     monkeypatch.setattr(monitor, "cycle", lambda c, t, d: seen.update(cycles=seen["cycles"] + 1))
 
+    sleeps = {"n": 0}
+
     def _sleep(_s):
-        raise KeyboardInterrupt
+        sleeps["n"] += 1
+        if sleeps["n"] >= 2:  # deixa rodar 2 iterações (falha + sucesso)
+            raise KeyboardInterrupt
 
     monkeypatch.setattr(monitor.time, "sleep", _sleep)
     monitor.run()
-    assert seen["cycles"] == 1
+    assert calls["login"] == 2  # relogou após a falha
+    assert seen["cycles"] == 1  # só rodou ciclo depois do login dar certo
+
+
+def test_run_loops_reusing_token_then_exits(monkeypatch, capsys):
+    # 2 iterações: loga só 1x (reaproveita o token) e roda 2 ciclos
+    logins = {"n": 0}
+    monkeypatch.setattr(monitor, "login", lambda client: (logins.update(n=logins["n"] + 1), "tok")[1])
+    monkeypatch.setattr(monitor, "_heartbeat", lambda c, t: None)
+    seen = {"cycles": 0}
+    monkeypatch.setattr(monitor, "cycle", lambda c, t, d: seen.update(cycles=seen["cycles"] + 1))
+
+    sleeps = {"n": 0}
+
+    def _sleep(_s):
+        sleeps["n"] += 1
+        if sleeps["n"] >= 2:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(monitor.time, "sleep", _sleep)
+    monitor.run()
+    assert seen["cycles"] == 2
+    assert logins["n"] == 1  # token reaproveitado na 2ª iteração
     assert "encerrado" in capsys.readouterr().out

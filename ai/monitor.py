@@ -154,14 +154,18 @@ def run():
     debouncers: dict = {}
     try:
         with httpx.Client(timeout=10) as client:
-            token = login(client)
+            token: str | None = None
             while True:
-                _heartbeat(client, token)
                 try:
+                    if token is None:  # 1º boot ou após erro/expiração
+                        token = login(client)
+                    _heartbeat(client, token)
                     cycle(client, token, debouncers)
                 except httpx.HTTPError as exc:
-                    # backend reiniciando / 500 / rede — loga e tenta no próximo ciclo
-                    print(f"[sentinela-ai] ciclo falhou: {exc}")
+                    # backend fora/reiniciando, token expirado, 500 etc.: não morre,
+                    # zera o token (força relogin) e tenta no próximo ciclo.
+                    token = None
+                    print(f"[sentinela-ai] backend indisponível, tentando de novo: {exc}")
                 time.sleep(INTERVAL)
     except KeyboardInterrupt:
         print("\n[sentinela-ai] encerrado.")
