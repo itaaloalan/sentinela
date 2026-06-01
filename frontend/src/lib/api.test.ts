@@ -9,8 +9,10 @@ import {
   deleteModel,
   deleteModelFrame,
   discoverCameras,
+  askSummary,
   eventSnapshotUrl,
   getAccessInfo,
+  getDaySummary,
   getHealth,
   getNotifyConfig,
   getSystemStatus,
@@ -376,6 +378,23 @@ describe("AI model API", () => {
     fetchMock.mockResolvedValue(mockResponse({ json: info }));
     expect(await getHealth()).toEqual(info);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/status/health");
+  });
+
+  it("getDaySummary GETs /api/summary/today", async () => {
+    auth.token = "t";
+    const sum = { date: "2026-06-01", total: 0, by_camera: [], by_label: [], first_at: null, last_at: null, busiest_hour: null, text: "x" };
+    fetchMock.mockResolvedValue(mockResponse({ json: sum }));
+    expect(await getDaySummary()).toEqual(sum);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/summary/today");
+  });
+
+  it("askSummary POSTs the question as JSON", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { question: "q", answer: "a" } }));
+    expect(await askSummary("quando?")).toEqual({ question: "q", answer: "a" });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/summary/ask");
+    expect(JSON.parse(init.body)).toEqual({ question: "quando?" });
   });
 
   it("getNotifyConfig GETs /api/notify/config", async () => {

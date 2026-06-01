@@ -36,6 +36,8 @@ vi.mock("./lib/api", () => ({
   getSystemStatus: vi.fn().mockResolvedValue({ backend: true, go2rtc: true, ai: true }),
   getAccessInfo: vi.fn(),
   getHealth: vi.fn(),
+  getDaySummary: vi.fn(),
+  askSummary: vi.fn(),
 }));
 
 function renderAt(path: string) {

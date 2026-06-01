@@ -313,6 +313,33 @@ export async function getHealth(): Promise<HealthInfo> {
   return (await req("/api/status/health")).json();
 }
 
+// ---- Resumo do dia + perguntas ----
+
+export interface DaySummary {
+  date: string;
+  total: number;
+  by_camera: { camera: string; count: number }[];
+  by_label: { label: string; count: number }[];
+  first_at: string | null;
+  last_at: string | null;
+  busiest_hour: number | null;
+  text: string;
+}
+
+export async function getDaySummary(): Promise<DaySummary> {
+  return (await req("/api/summary/today")).json();
+}
+
+export async function askSummary(question: string): Promise<{ question: string; answer: string }> {
+  return (
+    await req("/api/summary/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    })
+  ).json();
+}
+
 // ---- Acesso remoto (compartilhar) ----
 
 export interface AccessInfo {

@@ -326,6 +326,15 @@ describe("Grid", () => {
     expect(navigate).toHaveBeenCalledWith("/notificacoes");
   });
 
+  it("navigates to the summary page", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await openMenu(user);
+    await user.click(screen.getByRole("button", { name: "📋 Resumo" }));
+    expect(navigate).toHaveBeenCalledWith("/resumo");
+  });
+
   it("navigates to the health page", async () => {
     const user = userEvent.setup();
     render(<Grid />);

@@ -6,6 +6,7 @@ import Training from "./pages/Training";
 import Events from "./pages/Events";
 import Notifications from "./pages/Notifications";
 import Health from "./pages/Health";
+import Summary from "./pages/Summary";
 import { SystemStatus } from "./components/SystemStatus";
 import { AccessShare } from "./components/AccessShare";
 
@@ -61,6 +62,14 @@ export default function App() {
         element={
           <Protected>
             <Health />
+          </Protected>
+        }
+      />
+      <Route
+        path="/resumo"
+        element={
+          <Protected>
+            <Summary />
           </Protected>
         }
       />
