@@ -2,6 +2,10 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 
+// jsdom não preenche clientX em PointerEvent; o MouseEvent preenche.
+// @ts-expect-error shim de teste: usar MouseEvent para eventos de ponteiro
+globalThis.PointerEvent = globalThis.MouseEvent;
+
 // jsdom (sob este vitest/node) não expõe localStorage; polyfill simples.
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
