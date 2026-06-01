@@ -29,7 +29,7 @@ describe("CropEditor", () => {
     expect(screen.getByText(/Arraste sobre o portão/)).toBeInTheDocument();
   });
 
-  it("converts a dragged rectangle to source pixels and saves", () => {
+  it("converts a dragged rectangle to source pixels and saves", async () => {
     mockGeometry(480, 270, 1920, 1080); // escala 4x em ambos os eixos
     const onSave = vi.fn();
     const { container } = render(<CropEditor src="/snap.jpg" crop={null} onSave={onSave} />);
@@ -42,9 +42,11 @@ describe("CropEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar recorte" }));
     // 100..300 ×4 = 400..1200 ; 50..200 ×4 = 200..800
     expect(onSave).toHaveBeenCalledWith({ x1: 400, y1: 200, x2: 1200, y2: 800 });
+    // confirmação visível + retângulo de edição some
+    expect(await screen.findByText(/✓ recorte salvo: \(400,200\) → \(1200,800\)/)).toBeInTheDocument();
   });
 
-  it("normalizes a rectangle dragged up-and-left and clamps to bounds", () => {
+  it("normalizes a rectangle dragged up-and-left and clamps to bounds", async () => {
     mockGeometry(480, 270, 480, 270); // escala 1x
     const onSave = vi.fn();
     const { container } = render(<CropEditor src="/snap.jpg" crop={null} onSave={onSave} />);
@@ -55,6 +57,7 @@ describe("CropEditor", () => {
     fireEvent.pointerUp(stage);
     fireEvent.click(screen.getByRole("button", { name: "Salvar recorte" }));
     expect(onSave).toHaveBeenCalledWith({ x1: 0, y1: 0, x2: 200, y2: 150 });
+    await screen.findByText(/✓ recorte salvo/); // aguarda o estado assíncrono assentar
   });
 
   it("ignores pointer move when no drag is in progress", () => {

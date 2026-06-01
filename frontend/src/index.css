@@ -233,6 +233,7 @@ select {
 .crop-rect { position: absolute; border: 2px solid var(--accent); background: rgba(34, 211, 238, 0.18); pointer-events: none; }
 .crop-actions { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
 .crop-actions button { width: auto; margin: 0; }
+.crop-saved { color: #6ee7b7; font-weight: 600; }
 .actions { display: flex; flex-wrap: wrap; gap: 1rem; }
 .action { display: flex; flex-direction: column; gap: 0.3rem; max-width: 16rem; }
 .action button { width: auto; margin: 0; }

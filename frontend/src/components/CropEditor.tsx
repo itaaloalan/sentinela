@@ -23,6 +23,7 @@ export function CropEditor({
   const imgRef = useRef<HTMLImageElement>(null);
   const start = useRef<{ x: number; y: number } | null>(null);
   const [sel, setSel] = useState<Rect | null>(null);
+  const [saved, setSaved] = useState("");
 
   function at(e: React.PointerEvent) {
     const r = stageRef.current!.getBoundingClientRect();
@@ -33,6 +34,7 @@ export function CropEditor({
   }
 
   function down(e: React.PointerEvent) {
+    setSaved("");
     const p = at(e);
     start.current = p;
     setSel({ x: p.x, y: p.y, w: 0, h: 0 });
@@ -54,18 +56,21 @@ export function CropEditor({
     start.current = null;
   }
 
-  function save() {
+  async function save() {
     const img = imgRef.current!;
     const r = stageRef.current!.getBoundingClientRect();
     const sx = img.naturalWidth / r.width;
     const sy = img.naturalHeight / r.height;
     const s = sel!; // botão fica desabilitado enquanto não há seleção
-    return onSave({
+    const c = {
       x1: Math.round(s.x * sx),
       y1: Math.round(s.y * sy),
       x2: Math.round((s.x + s.w) * sx),
       y2: Math.round((s.y + s.h) * sy),
-    });
+    };
+    await onSave(c);
+    setSel(null); // some com o retângulo de edição
+    setSaved(`✓ recorte salvo: (${c.x1},${c.y1}) → (${c.x2},${c.y2})`);
   }
 
   return (
@@ -86,12 +91,14 @@ export function CropEditor({
         )}
       </div>
       <div className="crop-actions">
-        <span className="hint">
-          {sel
-            ? "arraste de novo para ajustar, depois salve"
-            : crop
-              ? `recorte salvo: (${crop.x1},${crop.y1}) → (${crop.x2},${crop.y2})`
-              : "sem recorte — a IA usa o quadro inteiro. Arraste sobre o portão."}
+        <span className={saved ? "hint crop-saved" : "hint"}>
+          {saved
+            ? saved
+            : sel
+              ? "arraste de novo para ajustar, depois salve"
+              : crop
+                ? `recorte salvo: (${crop.x1},${crop.y1}) → (${crop.x2},${crop.y2})`
+                : "sem recorte — a IA usa o quadro inteiro. Arraste sobre o portão."}
         </span>
         <AsyncButton className="primary" disabled={!sel} onClick={save}>
           Salvar recorte
