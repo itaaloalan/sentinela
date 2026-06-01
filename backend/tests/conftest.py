@@ -5,11 +5,13 @@ modo que o engine real (e o `get_session`) sejam exercitados — nada de mocks d
 sessão. Cada teste roda com as tabelas recriadas e o admin semeado.
 """
 import os
+import shutil
 import tempfile
 
-# DB temporário + credenciais determinísticas, ANTES de importar o app.
+# DB + dir de dados temporários e credenciais determinísticas, ANTES do app.
 _TMPDIR = tempfile.mkdtemp(prefix="sentinela-test-")
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMPDIR}/test.db"
+os.environ["AI_DATA_DIR"] = f"{_TMPDIR}/ai-data"
 os.environ["SENTINELA_ADMIN_USER"] = "admin"
 os.environ["SENTINELA_ADMIN_PASS"] = "secret"
 
@@ -17,18 +19,17 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlmodel import SQLModel  # noqa: E402
 
-from app import database, db  # noqa: E402
+from app import database  # noqa: E402
 from app.main import app  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def reset_db():
-    """Tabelas limpas + admin semeado por teste; também zera os stores em memória."""
+    """Tabelas limpas + admin semeado por teste."""
     SQLModel.metadata.drop_all(database.engine)
     SQLModel.metadata.create_all(database.engine)
     database.seed_admin()
-    db.ai_models.clear()
-    db.events.clear()
+    shutil.rmtree(os.environ["AI_DATA_DIR"], ignore_errors=True)
     yield
     SQLModel.metadata.drop_all(database.engine)
 

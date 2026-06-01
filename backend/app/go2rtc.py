@@ -19,6 +19,15 @@ from .config import settings
 log = logging.getLogger("sentinela.go2rtc")
 
 
+async def grab_frame(name: str) -> bytes:
+    """Pega um snapshot JPEG da câmera via go2rtc. Levanta httpx.HTTPError."""
+    url = f"{settings.go2rtc_url}/api/frame.jpeg?src={name}"
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(url)
+    resp.raise_for_status()
+    return resp.content
+
+
 async def register_stream(name: str, source: str) -> bool:
     """PUT do stream no go2rtc. Retorna True em sucesso, False caso contrário."""
     url = f"{settings.go2rtc_url}/api/streams"

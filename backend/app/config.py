@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     app_public_url: str = Field("http://localhost:5173", validation_alias="APP_PUBLIC_URL")
 
     # IA
+    ai_data_dir: str = Field("../ai/data", validation_alias="AI_DATA_DIR")
     ai_frame_interval_seconds: int = Field(5, validation_alias="AI_FRAME_INTERVAL_SECONDS")
     ai_open_debounce_seconds: int = Field(45, validation_alias="AI_OPEN_DEBOUNCE_SECONDS")
     ai_confidence_threshold: float = Field(0.8, validation_alias="AI_CONFIDENCE_THRESHOLD")
