@@ -10,6 +10,12 @@ vi.mock("../components/CameraVideo", () => ({
   CameraVideo: () => <div data-testid="cam-video" />,
 }));
 
+vi.mock("../components/CropEditor", () => ({
+  CropEditor: ({ onSave }: { onSave: (c: unknown) => void }) => (
+    <button onClick={() => onSave({ x1: 1, y1: 2, x2: 3, y2: 4 })}>mock-salvar-crop</button>
+  ),
+}));
+
 const api = {
   listModels: vi.fn(),
   listCameras: vi.fn(),
@@ -40,6 +46,7 @@ vi.mock("../lib/api", () => ({
   deleteModel: (...a: unknown[]) => api.deleteModel(...a),
   modelFrameUrl: (id: number, label: string, f: string) =>
     `/api/models/${id}/frames/${label}/${f}?token=`,
+  snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot?token=`,
 }));
 
 // modelo 1: câmera existente, crop, accuracy, ativo, frames cheios
@@ -242,16 +249,13 @@ describe("Training", () => {
     await waitFor(() => expect(api.deleteModelFrame).toHaveBeenCalledWith(1, "aberto", "f1.jpg"));
   });
 
-  it("saves the crop", async () => {
+  it("saves the crop from the visual editor", async () => {
     const user = userEvent.setup();
     render(<Training />);
     await user.click(await screen.findByText(/portao · pronto/));
-    const x1 = await screen.findByLabelText("x1");
-    await user.clear(x1);
-    await user.type(x1, "10");
-    await user.click(screen.getByRole("button", { name: "Salvar crop" }));
+    await user.click(await screen.findByRole("button", { name: "mock-salvar-crop" }));
     await waitFor(() =>
-      expect(api.setModelCrop).toHaveBeenCalledWith(1, { x1: 10, y1: 2, x2: 3, y2: 4 }),
+      expect(api.setModelCrop).toHaveBeenCalledWith(1, { x1: 1, y1: 2, x2: 3, y2: 4 }),
     );
   });
 

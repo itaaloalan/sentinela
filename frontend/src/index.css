@@ -226,6 +226,13 @@ select {
 .alert-config h3 { margin: 0 0 0.6rem; }
 .alert-config select, .alert-config input[type="number"] { width: auto; margin: 0; }
 .alert-config input[type="number"] { width: 5rem; }
+.crop-section h3 { margin: 0 0 0.5rem; }
+.crop-editor { display: flex; flex-direction: column; gap: 0.6rem; max-width: 480px; }
+.crop-stage { position: relative; width: 100%; background: #000; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; touch-action: none; cursor: crosshair; }
+.crop-stage img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+.crop-rect { position: absolute; border: 2px solid var(--accent); background: rgba(34, 211, 238, 0.18); pointer-events: none; }
+.crop-actions { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+.crop-actions button { width: auto; margin: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 1rem; }
 .action { display: flex; flex-direction: column; gap: 0.3rem; max-width: 16rem; }
 .action button { width: auto; margin: 0; }

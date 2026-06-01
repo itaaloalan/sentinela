@@ -11,14 +11,17 @@ import {
   listModelFrames,
   modelFrameUrl,
   setModelCrop,
+  snapshotUrl,
   testModel,
   trainModel,
   updateModel,
   type AIModel,
   type Camera,
+  type Crop,
   type TestResult,
 } from "../lib/api";
 import { CameraVideo } from "../components/CameraVideo";
+import { CropEditor } from "../components/CropEditor";
 import { AsyncButton } from "../components/AsyncButton";
 
 function statusKind(status: string): string {
@@ -37,7 +40,6 @@ export default function Training() {
   const [newName, setNewName] = useState("portao");
   const [newCameraId, setNewCameraId] = useState<number | "">("");
   const [newClasses, setNewClasses] = useState("aberto, fechado");
-  const [crop, setCrop] = useState({ x1: "0", y1: "0", x2: "0", y2: "0" });
   const [nameEdit, setNameEdit] = useState("");
   const [classesEdit, setClassesEdit] = useState("");
   const [alertLabel, setAlertLabel] = useState("");
@@ -89,12 +91,6 @@ export default function Training() {
 
   function onSelect(model: AIModel) {
     setSelectedId(model.id);
-    setCrop({
-      x1: String(model.crop?.x1 ?? 0),
-      y1: String(model.crop?.y1 ?? 0),
-      x2: String(model.crop?.x2 ?? 0),
-      y2: String(model.crop?.y2 ?? 0),
-    });
     setNameEdit(model.name);
     setClassesEdit(model.classes.join(", "));
     setAlertLabel(model.alert_label);
@@ -169,14 +165,9 @@ export default function Training() {
     });
   }
 
-  function onSaveCrop() {
+  function onSaveCrop(c: Crop) {
     return run(async () => {
-      await setModelCrop(selected!.id, {
-        x1: Number(crop.x1),
-        y1: Number(crop.y1),
-        x2: Number(crop.x2),
-        y2: Number(crop.y2),
-      });
+      await setModelCrop(selected!.id, c);
       await refresh();
     });
   }
@@ -328,19 +319,17 @@ export default function Training() {
               </div>
             ))}
 
-            <div className="cam-form">
-              <span>Crop:</span>
-              {(["x1", "y1", "x2", "y2"] as const).map((k) => (
-                <input
-                  key={k}
-                  type="number"
-                  aria-label={k}
-                  value={crop[k]}
-                  onChange={(e) => setCrop((c) => ({ ...c, [k]: e.target.value }))}
+            {previewName && (
+              <div className="crop-section">
+                <h3>✂️ Recorte (foco da IA)</h3>
+                <CropEditor
+                  key={selected.id}
+                  src={snapshotUrl(selected.camera_id)}
+                  crop={selected.crop}
+                  onSave={onSaveCrop}
                 />
-              ))}
-              <AsyncButton className="ghost" onClick={onSaveCrop}>Salvar crop</AsyncButton>
-            </div>
+              </div>
+            )}
 
             <div className="alert-config">
               <h3>🔔 Quando disparar o alerta</h3>
