@@ -12,20 +12,32 @@ def _topic_url() -> str:
     return f"{settings.ntfy_server}/{settings_store.ntfy_topic()}"
 
 
+async def _send_discord(client: httpx.Client, content: str, jpeg: bytes | None = None) -> None:
+    """Posta no webhook do Discord, se configurado. Best-effort no caminho do alerta."""
+    url = settings_store.discord_webhook()
+    if not url:
+        return
+    if jpeg is None:
+        resp = await client.post(url, json={"content": content})
+    else:
+        resp = await client.post(
+            url, data={"content": content}, files={"file": ("portao.jpg", jpeg, "image/jpeg")}
+        )
+    resp.raise_for_status()
+
+
 async def send_test() -> None:
-    """Dispara uma notificação de teste no tópico atual (botão na UI)."""
+    """Dispara uma notificação de teste no ntfy + Discord (se configurado)."""
     headers = {
         "Title": "Sentinela: teste",
         "Tags": "white_check_mark",
         "Click": settings.app_public_url,
     }
+    msg = b"Notificacao de teste do Sentinela. Se chegou, esta tudo certo!"
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.put(
-            _topic_url(),
-            content=b"Notificacao de teste do Sentinela. Se chegou, esta tudo certo!",
-            headers=headers,
-        )
-    resp.raise_for_status()
+        resp = await client.put(_topic_url(), content=msg, headers=headers)
+        resp.raise_for_status()
+        await _send_discord(client, "✅ Sentinela: notificação de teste. Tudo certo!")
 
 
 async def send_gate_open(snapshot_jpeg: bytes, event_id: int | None = None) -> None:
@@ -45,7 +57,7 @@ async def send_gate_open(snapshot_jpeg: bytes, event_id: int | None = None) -> N
     }
     async with httpx.AsyncClient(timeout=10) as client:
         await client.put(url, content=snapshot_jpeg, headers=headers)
-
-
-# Fallback opcional (Telegram) — implementar se desejado:
-# async def send_telegram(...): ...
+        try:
+            await _send_discord(client, "🚨 Portão aberto!", snapshot_jpeg)
+        except httpx.HTTPError:
+            pass  # Discord é canal extra; não derruba o alerta principal (ntfy)

@@ -10,21 +10,39 @@ from .database import engine
 from .db_models import Setting
 
 _NTFY_TOPIC = "ntfy_topic"
+_DISCORD_WEBHOOK = "discord_webhook"
 
 
-def ntfy_topic() -> str:
-    """Tópico efetivo: o salvo no banco ou, se nunca trocado, o do .env."""
+def _get(key: str, default: str) -> str:
     with Session(engine) as session:
-        rec = session.get(Setting, _NTFY_TOPIC)
-        return rec.value if rec else settings.ntfy_topic
+        rec = session.get(Setting, key)
+        return rec.value if rec else default
 
 
-def set_ntfy_topic(value: str) -> None:
+def _set(key: str, value: str) -> None:
     with Session(engine) as session:
-        rec = session.get(Setting, _NTFY_TOPIC)
+        rec = session.get(Setting, key)
         if rec is None:
-            rec = Setting(key=_NTFY_TOPIC, value=value)
+            rec = Setting(key=key, value=value)
         else:
             rec.value = value
         session.add(rec)
         session.commit()
+
+
+def ntfy_topic() -> str:
+    """Tópico efetivo: o salvo no banco ou, se nunca trocado, o do .env."""
+    return _get(_NTFY_TOPIC, settings.ntfy_topic)
+
+
+def set_ntfy_topic(value: str) -> None:
+    _set(_NTFY_TOPIC, value)
+
+
+def discord_webhook() -> str:
+    """Webhook do Discord efetivo (banco → .env). Vazio = Discord desligado."""
+    return _get(_DISCORD_WEBHOOK, settings.discord_webhook)
+
+
+def set_discord_webhook(value: str) -> None:
+    _set(_DISCORD_WEBHOOK, value)

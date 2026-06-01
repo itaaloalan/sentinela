@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # Notificação (ntfy)
     ntfy_server: str = Field("https://ntfy.sh", validation_alias="NTFY_SERVER")
     ntfy_topic: str = Field("sentinela-troque-isto", validation_alias="NTFY_TOPIC")
+    discord_webhook: str = Field("", validation_alias="DISCORD_WEBHOOK")
     app_public_url: str = Field("http://localhost:5173", validation_alias="APP_PUBLIC_URL")
 
     # IA

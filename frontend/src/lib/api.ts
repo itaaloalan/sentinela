@@ -281,6 +281,7 @@ export interface NotifyConfig {
   topic: string;
   app_public_url: string;
   configured: boolean;
+  discord_enabled: boolean;
 }
 
 export async function getNotifyConfig(): Promise<NotifyConfig> {
@@ -293,6 +294,16 @@ export async function setNotifyTopic(topic: string): Promise<NotifyConfig> {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ topic }),
+    })
+  ).json();
+}
+
+export async function setDiscordWebhook(webhook: string): Promise<NotifyConfig> {
+  return (
+    await req("/api/notify/discord", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ webhook }),
     })
   ).json();
 }

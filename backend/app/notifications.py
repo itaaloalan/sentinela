@@ -24,6 +24,10 @@ class TopicIn(BaseModel):
     topic: str
 
 
+class DiscordIn(BaseModel):
+    webhook: str
+
+
 def _configured(topic: str) -> bool:
     # o placeholder do .env.example contém "troque"; tópico curto é inseguro
     return "troque" not in topic.lower() and len(topic) >= 12
@@ -36,6 +40,7 @@ def _payload() -> dict:
         "topic": topic,
         "app_public_url": settings.app_public_url,
         "configured": _configured(topic),
+        "discord_enabled": bool(settings_store.discord_webhook()),
     }
 
 
@@ -52,6 +57,18 @@ def set_topic(body: TopicIn, _: str = Depends(current_user)):
             400, "tópico inválido: use 12–64 caracteres [A-Za-z0-9_-], sem espaços"
         )
     settings_store.set_ntfy_topic(topic)
+    return _payload()
+
+
+@router.put("/discord")
+def set_discord(body: DiscordIn, _: str = Depends(current_user)):
+    """Define (ou limpa, com string vazia) o webhook do Discord."""
+    webhook = body.webhook.strip()
+    if webhook and not re.fullmatch(
+        r"https://(?:\w+\.)?discord(?:app)?\.com/api/webhooks/\S+", webhook
+    ):
+        raise HTTPException(400, "webhook inválido — cole a URL do webhook do Discord")
+    settings_store.set_discord_webhook(webhook)
     return _payload()
 
 

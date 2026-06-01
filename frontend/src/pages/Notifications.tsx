@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   getNotifyConfig,
   sendTestNotification,
+  setDiscordWebhook,
   setNotifyTopic,
   type NotifyConfig,
 } from "../lib/api";
@@ -18,6 +19,7 @@ function randomTopic(): string {
 export default function Notifications() {
   const [cfg, setCfg] = useState<NotifyConfig | null>(null);
   const [topic, setTopic] = useState("");
+  const [discord, setDiscord] = useState("");
   const [error, setError] = useState("");
   const [testMsg, setTestMsg] = useState("");
   const [copied, setCopied] = useState(false);
@@ -50,10 +52,18 @@ export default function Notifications() {
     });
   }
 
+  function saveDiscord(webhook: string) {
+    return run(async () => {
+      const c = await setDiscordWebhook(webhook);
+      setCfg(c);
+      setDiscord("");
+    });
+  }
+
   function sendTest() {
     return run(async () => {
       const r = await sendTestNotification();
-      setTestMsg(`Enviado para "${r.topic}" — veja a notificação no celular.`);
+      setTestMsg(`Enviado para "${r.topic}" — veja a notificação (e o Discord, se ligado).`);
     });
   }
 
@@ -114,6 +124,38 @@ export default function Notifications() {
                 </AsyncButton>
               </div>
               {testMsg && <div className="notify-sent">{testMsg}</div>}
+            </div>
+
+            <div className="notify-field">
+              <label htmlFor="discord">
+                Discord (opcional) —{" "}
+                {cfg.discord_enabled ? "✅ ligado" : "desligado"}
+              </label>
+              <div className="notify-topic">
+                <input
+                  id="discord"
+                  placeholder="cole a URL do webhook do Discord"
+                  value={discord}
+                  onChange={(e) => setDiscord(e.target.value)}
+                  spellCheck={false}
+                />
+                <AsyncButton
+                  className="ghost"
+                  disabled={!discord.trim()}
+                  onClick={() => saveDiscord(discord.trim())}
+                >
+                  Salvar Discord
+                </AsyncButton>
+                {cfg.discord_enabled && (
+                  <AsyncButton className="ghost" onClick={() => saveDiscord("")}>
+                    Desligar
+                  </AsyncButton>
+                )}
+              </div>
+              <span className="hint">
+                No Discord: Editar canal → Integrações → Webhooks → Novo webhook → Copiar
+                URL. O alerta vai com a foto pro canal.
+              </span>
             </div>
 
             <ol className="notify-steps">

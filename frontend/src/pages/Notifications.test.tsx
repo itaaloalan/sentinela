@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Notifications from "./Notifications";
 
@@ -9,11 +9,13 @@ vi.mock("react-router-dom", () => ({ useNavigate: () => navigate }));
 const api = {
   getNotifyConfig: vi.fn(),
   setNotifyTopic: vi.fn(),
+  setDiscordWebhook: vi.fn(),
   sendTestNotification: vi.fn(),
 };
 vi.mock("../lib/api", () => ({
   getNotifyConfig: (...a: unknown[]) => api.getNotifyConfig(...a),
   setNotifyTopic: (...a: unknown[]) => api.setNotifyTopic(...a),
+  setDiscordWebhook: (...a: unknown[]) => api.setDiscordWebhook(...a),
   sendTestNotification: (...a: unknown[]) => api.sendTestNotification(...a),
 }));
 
@@ -22,12 +24,14 @@ const CFG = {
   topic: "sentinela-a7f3k9x2-portao",
   app_public_url: "http://100.64.0.1:5173",
   configured: true,
+  discord_enabled: false,
 };
 
 beforeEach(() => {
   navigate.mockReset();
   api.getNotifyConfig.mockReset().mockResolvedValue(CFG);
   api.setNotifyTopic.mockReset().mockResolvedValue(CFG);
+  api.setDiscordWebhook.mockReset().mockResolvedValue({ ...CFG, discord_enabled: true });
   api.sendTestNotification.mockReset().mockResolvedValue({ sent: true, topic: CFG.topic });
 });
 
@@ -83,13 +87,32 @@ describe("Notifications", () => {
     expect(await screen.findByText("tópico inválido")).toBeInTheDocument();
   });
 
+  it("saves a Discord webhook", async () => {
+    const user = userEvent.setup();
+    render(<Notifications />);
+    const input = await screen.findByPlaceholderText(/webhook do Discord/);
+    await user.type(input, "https://discord.com/api/webhooks/1/abc");
+    await user.click(screen.getByRole("button", { name: "Salvar Discord" }));
+    await waitFor(() =>
+      expect(api.setDiscordWebhook).toHaveBeenCalledWith("https://discord.com/api/webhooks/1/abc"),
+    );
+  });
+
+  it("disables Discord when already enabled", async () => {
+    api.getNotifyConfig.mockResolvedValue({ ...CFG, discord_enabled: true });
+    const user = userEvent.setup();
+    render(<Notifications />);
+    await user.click(await screen.findByRole("button", { name: "Desligar" }));
+    await waitFor(() => expect(api.setDiscordWebhook).toHaveBeenCalledWith(""));
+  });
+
   it("sends a test notification via the backend", async () => {
     const user = userEvent.setup();
     render(<Notifications />);
     await screen.findByDisplayValue(CFG.topic);
     await user.click(screen.getByRole("button", { name: "Enviar teste" }));
     expect(api.sendTestNotification).toHaveBeenCalled();
-    expect(await screen.findByText(/veja a notificação no celular/)).toBeInTheDocument();
+    expect(await screen.findByText(/veja a notificação/)).toBeInTheDocument();
   });
 
   it("shows a generic error when sending the test fails (non-Error)", async () => {

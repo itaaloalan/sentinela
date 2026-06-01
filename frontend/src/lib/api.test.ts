@@ -12,6 +12,7 @@ import {
   eventSnapshotUrl,
   getNotifyConfig,
   sendTestNotification,
+  setDiscordWebhook,
   setNotifyTopic,
   listEvents,
   listCameras,
@@ -354,6 +355,16 @@ describe("AI model API", () => {
     expect(url).toBe("/api/notify/config");
     expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toEqual({ topic: "novo" });
+  });
+
+  it("setDiscordWebhook PUTs /api/notify/discord", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { discord_enabled: true } }));
+    await setDiscordWebhook("https://discord.com/api/webhooks/1/x");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/notify/discord");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ webhook: "https://discord.com/api/webhooks/1/x" });
   });
 
   it("sendTestNotification POSTs /api/notify/test", async () => {

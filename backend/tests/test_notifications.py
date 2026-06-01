@@ -25,6 +25,7 @@ def test_config_returns_ntfy_settings(client, auth_headers, monkeypatch):
         "topic": "sentinela-a7f3k9x2-portao",  # sem row no banco → cai no .env
         "app_public_url": "http://100.64.0.1:5173",
         "configured": True,
+        "discord_enabled": False,
     }
 
 
@@ -60,6 +61,30 @@ def test_put_topic_persists_and_overrides_env(client, auth_headers):
     assert settings_store.ntfy_topic() == outro
 
 
+# ---- PUT /discord ----
+
+def test_set_discord_requires_auth(client):
+    assert client.put("/api/notify/discord", json={"webhook": ""}).status_code == 401
+
+
+def test_set_discord_rejects_invalid(client, auth_headers):
+    resp = client.put(
+        "/api/notify/discord", json={"webhook": "http://exemplo.com/x"}, headers=auth_headers
+    )
+    assert resp.status_code == 400
+
+
+def test_set_discord_persists_and_can_clear(client, auth_headers):
+    url = "https://discord.com/api/webhooks/123/abc"
+    resp = client.put("/api/notify/discord", json={"webhook": url}, headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["discord_enabled"] is True
+    assert settings_store.discord_webhook() == url
+    # string vazia desliga
+    resp = client.put("/api/notify/discord", json={"webhook": ""}, headers=auth_headers)
+    assert resp.json()["discord_enabled"] is False
+
+
 # ---- POST /test (enviar pelo backend) ----
 
 def test_send_test_requires_auth(client):
@@ -73,6 +98,16 @@ def test_send_test_success(client, auth_headers):
     assert route.called
     assert body["sent"] is True
     assert body["topic"] == settings_store.ntfy_topic()
+
+
+def test_send_test_also_posts_to_discord_when_set(client, auth_headers):
+    hook = "https://discord.com/api/webhooks/1/xyz"
+    settings_store.set_discord_webhook(hook)
+    with respx.mock:
+        respx.put(_ntfy_url()).mock(return_value=httpx.Response(200))
+        discord = respx.post(hook).mock(return_value=httpx.Response(204))
+        client.post("/api/notify/test", headers=auth_headers)
+    assert discord.called
 
 
 def test_send_test_failure_returns_502(client, auth_headers):
