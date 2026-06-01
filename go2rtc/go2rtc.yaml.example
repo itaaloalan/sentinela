@@ -14,6 +14,7 @@
 
 api:
   listen: ":1984"           # API/UI — NÃO expor à internet; o backend faz proxy autenticado
+  origin: "*"               # libera o WebSocket de outra origem (frontend via proxy /go2rtc)
 
 rtsp:
   listen: ":8554"           # RTSP re-publicado (consumido pelo serviço de IA)
