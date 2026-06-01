@@ -8,12 +8,7 @@ services:
     container_name: sentinela-go2rtc
     restart: unless-stopped
     network_mode: host          # facilita descoberta ONVIF/RTSP na LAN
-    environment:
-      # preenchidas pelo .env (ver .env.example)
-      - CAM_ICSEE_IP=${CAM_ICSEE_IP}
-      - CAM_ICSEE_PASS=${CAM_ICSEE_PASS}
-      - CAM_YOOSEE_IP=${CAM_YOOSEE_IP}
-      - CAM_YOOSEE_PASS=${CAM_YOOSEE_PASS}
+    env_file: .env              # CAM_YOOSEE_PASS / CAM_ICSEE_USER / CAM_ICSEE_PASS (ver .env.example)
     volumes:
       - ./go2rtc:/config
 
