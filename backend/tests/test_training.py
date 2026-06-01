@@ -34,9 +34,6 @@ def _install_fake_ultralytics(monkeypatch, accuracy=0.95):
         def train(self, **kwargs):
             return FakeResults()
 
-        def export(self, **kwargs):
-            pass
-
     module = types.ModuleType("ultralytics")
     module.YOLO = FakeYOLO
     monkeypatch.setitem(sys.modules, "ultralytics", module)

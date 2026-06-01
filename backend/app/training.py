@@ -66,15 +66,24 @@ def _train_yolo(dataset: Path, epochs: int) -> float:
     # salva em <ai_data>/<id>/run/weights/best.pt (onde a inferência procura).
     # project PRECISA ser absoluto: com caminho relativo o Ultralytics prefixa o
     # próprio runs_dir (./runs/...) e a inferência não acha o best.pt.
+    #
+    # Performance (treino em CPU, datasets pequenos): `patience` faz parar cedo
+    # quando a acurácia estaciona — um portão aberto/fechado converge em poucos
+    # epochs, não precisa varrer os 30. `cache` mantém as imagens em RAM (cabem
+    # de sobra) e `plots=False` evita gerar PNGs de confusão/curvas que ninguém
+    # usa. NÃO exportamos ONNX: a inferência e o monitor carregam o best.pt.
     results = model.train(
         data=str(dataset.resolve()),
         epochs=epochs,
+        patience=5,
         imgsz=224,
+        cache=True,
+        plots=False,
+        verbose=False,
         project=str(dataset.parent.resolve()),
         name="run",
         exist_ok=True,
     )
-    model.export(format="onnx")
     return float(results.results_dict.get("metrics/accuracy_top1", 0.0))
 
 
