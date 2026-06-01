@@ -84,6 +84,7 @@ export function CameraVideo({
 
   return (
     <div className="cam-video-wrap" ref={wrapRef}>
+      <div className="cam-loading" aria-hidden="true">🔄 conectando…</div>
       <video-stream
         ref={ref}
         className="cam-video"

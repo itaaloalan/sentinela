@@ -26,6 +26,11 @@ describe("CameraVideo", () => {
     expect(el.mode).toBe("webrtc,mse");
   });
 
+  it("shows a connecting placeholder until the stream paints", () => {
+    render(<CameraVideo id={1} name="portao" />);
+    expect(screen.getByText(/conectando/)).toBeInTheDocument();
+  });
+
   it("toggles audio mute on the inner video", async () => {
     const user = userEvent.setup();
     const { container } = render(<CameraVideo id={1} name="portao" />);
