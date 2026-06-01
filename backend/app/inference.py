@@ -22,6 +22,11 @@ async def classify_live(model: AIModel, camera: Camera, crop: dict | None) -> di
         raise RuntimeError("Modelo ainda não treinado")
 
     jpeg = await grab_frame(camera.name)
+    if not jpeg:
+        raise RuntimeError(
+            f"go2rtc não entregou frame de '{camera.name}' — câmera offline ou "
+            "sem stream (RTSP timeout / VPN na rota da LAN?)"
+        )
 
     from PIL import Image  # lazy
 

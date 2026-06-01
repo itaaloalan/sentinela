@@ -78,3 +78,13 @@ async def test_classify_live_not_trained(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
     with pytest.raises(RuntimeError, match="treinado"):
         await inference.classify_live(_model(1), Camera(name="portao", source="x"), None)
+
+
+async def test_classify_live_empty_frame(monkeypatch, tmp_path):
+    # go2rtc devolve 200 com corpo vazio (câmera sem stream) → erro acionável
+    monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
+    _touch_weights(1)
+    with respx.mock:
+        respx.get(FRAME_URL).mock(return_value=httpx.Response(200, content=b""))
+        with pytest.raises(RuntimeError, match="não entregou frame"):
+            await inference.classify_live(_model(1), Camera(name="portao", source="x"), None)

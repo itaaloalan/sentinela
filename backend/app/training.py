@@ -56,12 +56,14 @@ def _train_yolo(dataset: Path, epochs: int) -> float:
     from ultralytics import YOLO  # import pesado/lazy (AGPL)
 
     model = YOLO("yolo11n-cls.pt")
-    # salva em <ai_data>/<id>/run/weights/best.pt (onde a inferência procura)
+    # salva em <ai_data>/<id>/run/weights/best.pt (onde a inferência procura).
+    # project PRECISA ser absoluto: com caminho relativo o Ultralytics prefixa o
+    # próprio runs_dir (./runs/...) e a inferência não acha o best.pt.
     results = model.train(
-        data=str(dataset),
+        data=str(dataset.resolve()),
         epochs=epochs,
         imgsz=224,
-        project=str(dataset.parent),
+        project=str(dataset.parent.resolve()),
         name="run",
         exist_ok=True,
     )

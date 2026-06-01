@@ -111,6 +111,18 @@ describe("authenticated requests", () => {
     await expect(listCameras()).rejects.toThrow("Bad Gateway");
   });
 
+  it("extracts FastAPI's detail from a JSON error body", async () => {
+    fetchMock.mockResolvedValue(
+      mockResponse({ ok: false, text: '{"detail":"Modelo ainda não treinado"}' }),
+    );
+    await expect(listCameras()).rejects.toThrow("Modelo ainda não treinado");
+  });
+
+  it("falls back to the raw JSON when there is no detail field", async () => {
+    fetchMock.mockResolvedValue(mockResponse({ ok: false, text: "[1,2]" }));
+    await expect(listCameras()).rejects.toThrow("[1,2]");
+  });
+
   it("createCamera posts JSON and returns the camera", async () => {
     fetchMock.mockResolvedValue(mockResponse({ json: { id: 7, name: "portao" } }));
     const cam = await createCamera({

@@ -17,11 +17,21 @@ export const auth = {
   },
 };
 
+async function errorMessage(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    // FastAPI manda {"detail": "..."} — mostra só a mensagem, não o JSON cru
+    return JSON.parse(text).detail ?? text;
+  } catch {
+    return text || res.statusText;
+  }
+}
+
 async function req(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   if (auth.token) headers.set("Authorization", `Bearer ${auth.token}`);
   const res = await fetch(path, { ...init, headers });
-  if (!res.ok) throw new Error((await res.text()) || res.statusText);
+  if (!res.ok) throw new Error(await errorMessage(res));
   return res;
 }
 
