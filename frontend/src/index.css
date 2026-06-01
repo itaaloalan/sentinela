@@ -68,10 +68,14 @@ main { padding: 1rem; max-width: 1100px; margin: 0 auto; }
   height: 100%;
   object-fit: cover;
 }
-.mute-btn {
+.cam-controls {
   position: absolute;
   bottom: 8px;
   right: 8px;
+  display: flex;
+  gap: 0.4rem;
+}
+.cam-controls button {
   width: auto;
   margin: 0;
   padding: 0.25rem 0.5rem;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   auth,
@@ -6,48 +6,13 @@ import {
   deleteCamera,
   discoverCameras,
   listCameras,
-  streamWsUrl,
   updateCamera,
   type Camera,
   type DiscoveredCamera,
 } from "../lib/api";
+import { CameraVideo } from "../components/CameraVideo";
 
 const KINDS = ["rtsp", "dvrip", "onvif"];
-
-// Vídeo ao vivo via WebRTC (web component <video-stream> do go2rtc).
-// src/mode/background são propriedades, setadas via ref. Áudio começa mudo
-// (política de autoplay) e o usuário desmuta no botão.
-function CameraVideo({ name }: { name: string }) {
-  const ref = useRef<HTMLElement>(null);
-  const [muted, setMuted] = useState(true);
-  useEffect(() => {
-    const el = ref.current as unknown as {
-      mode: string;
-      background: boolean;
-      src: string;
-    };
-    el.mode = "webrtc,mse";
-    el.background = false;
-    el.src = streamWsUrl(name);
-  }, [name]);
-  useEffect(() => {
-    const video = (ref.current as HTMLElement).querySelector("video");
-    if (video) (video as HTMLVideoElement).muted = muted;
-  }, [muted]);
-  return (
-    <div className="cam-video-wrap">
-      <video-stream ref={ref} className="cam-video" />
-      <button
-        type="button"
-        className="mute-btn"
-        onClick={() => setMuted((m) => !m)}
-        aria-label={muted ? "Ativar som" : "Mutar"}
-      >
-        {muted ? "🔇" : "🔊"}
-      </button>
-    </div>
-  );
-}
 
 export default function Grid() {
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -247,7 +212,7 @@ export default function Grid() {
           {cameras.map((cam) => (
             <div className="cam-card" key={cam.id}>
               <div className="video">
-                <CameraVideo name={cam.name} />
+                <CameraVideo id={cam.id} name={cam.name} />
               </div>
               <div className="label">
                 {cam.name}

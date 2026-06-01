@@ -22,6 +22,7 @@ vi.mock("../lib/api", () => ({
   deleteCamera: (...a: unknown[]) => api.deleteCamera(...a),
   discoverCameras: (...a: unknown[]) => api.discoverCameras(...a),
   streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
+  snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot?token=`,
 }));
 
 const FOUND = {
@@ -213,33 +214,6 @@ describe("Grid", () => {
     await screen.findByText("portao");
     await user.click(screen.getByRole("button", { name: "Excluir" }));
     expect(await screen.findByText("Erro ao excluir")).toBeInTheDocument();
-  });
-
-  it("renders a live video-stream pointing at the camera", async () => {
-    api.listCameras.mockResolvedValue(ONE);
-    const { container } = render(<Grid />);
-    await screen.findByText("portao");
-    const el = container.querySelector("video-stream") as unknown as {
-      src: string;
-      mode: string;
-    };
-    expect(el).toBeTruthy();
-    expect(el.src).toBe("ws://localhost/go2rtc/api/ws?src=portao");
-    expect(el.mode).toBe("webrtc,mse");
-  });
-
-  it("toggles audio mute on the inner video", async () => {
-    api.listCameras.mockResolvedValue(ONE);
-    const user = userEvent.setup();
-    const { container } = render(<Grid />);
-    await screen.findByText("portao");
-    // o go2rtc cria o <video> internamente; aqui simulamos
-    const video = document.createElement("video");
-    container.querySelector("video-stream")!.appendChild(video);
-    await user.click(screen.getByRole("button", { name: "Ativar som" }));
-    expect(video.muted).toBe(false);
-    // botão alterna para "Mutar"
-    expect(screen.getByRole("button", { name: "Mutar" })).toBeInTheDocument();
   });
 
   it("discovers cameras, logs the scan, and prefills the form when clicking Usar", async () => {
