@@ -80,26 +80,33 @@ def post_event(client: httpx.Client, token: str, model_id: int, label: str, jpeg
     )
 
 
+def _process_model(client, token, model, name_by_id, debouncers) -> None:
+    if not model["active"]:
+        return
+    name = name_by_id.get(model["camera_id"])
+    if name is None:
+        return
+    jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg?src={name}").content
+    label, conf = classify(weights_path(model["id"]), jpeg, model["crop"])
+    if conf < THRESHOLD:
+        return
+    deb = debouncers.setdefault(model["id"], Debouncer(ALERT_LABEL, DEBOUNCE))
+    if deb.update(label, time.time()):
+        post_event(client, token, model["id"], label, jpeg)
+
+
 def cycle(client: httpx.Client, token: str, debouncers: dict) -> None:
-    """Uma varredura: classifica cada modelo ativo e dispara evento se for o caso."""
+    """Uma varredura. Erro num modelo é logado e não derruba os demais/o loop."""
     headers = {"Authorization": f"Bearer {token}"}
     models = client.get(f"{BACKEND_URL}/api/models", headers=headers).json()
     cameras = client.get(f"{BACKEND_URL}/api/cameras", headers=headers).json()
     name_by_id = {c["id"]: c["name"] for c in cameras}
 
     for model in models:
-        if not model["active"]:
-            continue
-        name = name_by_id.get(model["camera_id"])
-        if name is None:
-            continue
-        jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg?src={name}").content
-        label, conf = classify(weights_path(model["id"]), jpeg, model["crop"])
-        if conf < THRESHOLD:
-            continue
-        deb = debouncers.setdefault(model["id"], Debouncer(ALERT_LABEL, DEBOUNCE))
-        if deb.update(label, time.time()):
-            post_event(client, token, model["id"], label, jpeg)
+        try:
+            _process_model(client, token, model, name_by_id, debouncers)
+        except Exception as exc:  # go2rtc fora, ultralytics ausente, etc.
+            print(f"[sentinela-ai] erro no modelo {model.get('id')}: {exc}")
 
 
 def run():

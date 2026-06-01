@@ -142,6 +142,27 @@ def test_cycle_no_fire_before_debounce(monkeypatch):
 
 
 @respx.mock
+def test_cycle_handles_model_error(monkeypatch, capsys):
+    # erro num modelo (ex.: ultralytics ausente) é logado e não derruba o loop
+    def _boom(*a):
+        raise RuntimeError("sem ultralytics")
+
+    monkeypatch.setattr(monitor, "classify", _boom)
+    respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "camera_id": 1, "active": True, "crop": None}])
+    )
+    respx.get(f"{monitor.BACKEND_URL}/api/cameras").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "name": "portao"}])
+    )
+    respx.get(f"{monitor.GO2RTC_URL}/api/frame.jpeg").mock(
+        return_value=httpx.Response(200, content=b"jpeg")
+    )
+    with httpx.Client() as client:
+        monitor.cycle(client, "tok", {})  # não levanta
+    assert "erro no modelo 1" in capsys.readouterr().out
+
+
+@respx.mock
 def test_post_event():
     route = respx.post(f"{monitor.BACKEND_URL}/api/events").mock(
         return_value=httpx.Response(201, json={"id": 9})
