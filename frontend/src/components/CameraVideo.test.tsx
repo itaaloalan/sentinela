@@ -95,6 +95,18 @@ describe("CameraVideo", () => {
     expect(exit).toHaveBeenCalledOnce();
   });
 
+  it("toggles two-way audio (microphone) on/off", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<CameraVideo id={1} name="portao" />);
+    const el = getStream(container) as unknown as { media: string; mode: string };
+    expect(el.media).toBe("video,audio");
+    await user.click(screen.getByRole("button", { name: "Falar" }));
+    expect(el.media).toBe("video,audio,microphone");
+    expect(el.mode).toBe("webrtc");
+    await user.click(screen.getByRole("button", { name: "Parar de falar" }));
+    expect(el.media).toBe("video,audio");
+  });
+
   it("no PTZ pad when ptz is false", () => {
     render(<CameraVideo id={1} name="portao" />);
     expect(screen.queryByRole("button", { name: "Cima" })).toBeNull();

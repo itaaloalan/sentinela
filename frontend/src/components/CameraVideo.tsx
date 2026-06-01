@@ -17,19 +17,23 @@ export function CameraVideo({
   const wrapRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const [muted, setMuted] = useState(true);
+  const [talking, setTalking] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const el = ref.current as unknown as {
       mode: string;
+      media: string;
       background: boolean;
       src: string;
     };
-    el.mode = "webrtc,mse";
+    // falar exige WebRTC (MSE não envia áudio de volta) + microfone no media.
+    el.mode = talking ? "webrtc" : "webrtc,mse";
+    el.media = talking ? "video,audio,microphone" : "video,audio";
     el.background = false;
     el.src = streamWsUrl(name);
-  }, [name]);
+  }, [name, talking]);
 
   useEffect(() => {
     const video = (ref.current as HTMLElement).querySelector("video");
@@ -101,6 +105,13 @@ export function CameraVideo({
         </button>
         <button type="button" onClick={() => zoomBy(-0.5)} aria-label="Afastar">
           ➖
+        </button>
+        <button
+          type="button"
+          onClick={() => setTalking((t) => !t)}
+          aria-label={talking ? "Parar de falar" : "Falar"}
+        >
+          {talking ? "🛑🎤" : "🎤"}
         </button>
         <button type="button" onClick={snapshot} aria-label="Tirar foto">
           📷
