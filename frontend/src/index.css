@@ -297,6 +297,47 @@ button.primary:disabled { opacity: 0.5; }
   z-index: 30;
 }
 
+/* barra fixa inferior-direita: status + acesso remoto */
+.topbar {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.topbar .sys-status { position: static; bottom: auto; right: auto; }
+
+.access-share { position: relative; }
+.access-share > button {
+  width: auto;
+  margin: 0;
+  border-radius: 999px;
+  padding: 0.25rem 0.9rem;
+  font-size: 0.8rem;
+}
+.access-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  width: min(92vw, 22rem);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.access-error { color: #fca5a5; font-size: 0.85rem; margin: 0; }
+.access-creds { margin: 0 0 0.7rem; font-size: 0.9rem; }
+.access-creds code { background: #0b1220; padding: 0.1rem 0.4rem; border-radius: 6px; }
+.access-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.access-list li { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.access-label { color: var(--muted); font-size: 0.75rem; min-width: 4.5rem; }
+.access-url { flex: 1 1 9rem; word-break: break-all; font-size: 0.85rem; }
+.access-list button { width: auto; margin: 0; padding: 0.25rem 0.7rem; font-size: 0.8rem; }
+
 /* guia de notificações (ntfy) */
 .notify-guide { max-width: 640px; display: flex; flex-direction: column; gap: 0.8rem; line-height: 1.5; }
 .notify-guide code { background: #0b1220; padding: 0.1rem 0.4rem; border-radius: 6px; }

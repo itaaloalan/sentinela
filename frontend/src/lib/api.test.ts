@@ -10,6 +10,7 @@ import {
   deleteModelFrame,
   discoverCameras,
   eventSnapshotUrl,
+  getAccessInfo,
   getNotifyConfig,
   getSystemStatus,
   sendTestNotification,
@@ -344,6 +345,20 @@ describe("AI model API", () => {
     fetchMock.mockResolvedValue(mockResponse({ json: { backend: true, go2rtc: false, ai: true } }));
     expect(await getSystemStatus()).toEqual({ backend: true, go2rtc: false, ai: true });
     expect(fetchMock.mock.calls[0][0]).toBe("/api/status");
+  });
+
+  it("getAccessInfo GETs /api/access", async () => {
+    auth.token = "t";
+    const info = {
+      username: "admin",
+      password: "secret",
+      local_url: "http://localhost:5173",
+      tailscale_url: null,
+      public_url: null,
+    };
+    fetchMock.mockResolvedValue(mockResponse({ json: info }));
+    expect(await getAccessInfo()).toEqual(info);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/access");
   });
 
   it("getNotifyConfig GETs /api/notify/config", async () => {

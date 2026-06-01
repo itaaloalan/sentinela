@@ -296,6 +296,20 @@ export async function getSystemStatus(): Promise<SystemStatusInfo> {
   return (await req("/api/status")).json();
 }
 
+// ---- Acesso remoto (compartilhar) ----
+
+export interface AccessInfo {
+  username: string;
+  password: string;
+  local_url: string;
+  tailscale_url: string | null;
+  public_url: string | null;
+}
+
+export async function getAccessInfo(): Promise<AccessInfo> {
+  return (await req("/api/access")).json();
+}
+
 export async function getNotifyConfig(): Promise<NotifyConfig> {
   return (await req("/api/notify/config")).json();
 }

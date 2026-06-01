@@ -6,6 +6,7 @@ import Training from "./pages/Training";
 import Events from "./pages/Events";
 import Notifications from "./pages/Notifications";
 import { SystemStatus } from "./components/SystemStatus";
+import { AccessShare } from "./components/AccessShare";
 
 function Protected({ children }: { children: React.ReactNode }) {
   return auth.isLoggedIn ? <>{children}</> : <Navigate to="/login" replace />;
@@ -14,7 +15,12 @@ function Protected({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <>
-      {auth.isLoggedIn && <SystemStatus />}
+      {auth.isLoggedIn && (
+        <div className="topbar">
+          <SystemStatus />
+          <AccessShare />
+        </div>
+      )}
       <Routes>
       <Route path="/login" element={<Login />} />
       <Route
