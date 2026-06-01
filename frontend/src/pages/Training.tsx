@@ -45,6 +45,7 @@ export default function Training() {
   const [alertLabel, setAlertLabel] = useState("");
   const [debounce, setDebounce] = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const nav = useNavigate();
 
   async function run(fn: () => Promise<void>) {
@@ -309,7 +310,11 @@ export default function Training() {
                 <div className="thumbs">
                   {(framesByLabel[label] ?? []).map((file) => (
                     <div className="thumb" key={file}>
-                      <img src={modelFrameUrl(selected.id, label, file)} alt={file} />
+                      <img
+                        src={modelFrameUrl(selected.id, label, file)}
+                        alt={file}
+                        onClick={() => setLightbox(modelFrameUrl(selected.id, label, file))}
+                      />
                       <AsyncButton className="ghost" onClick={() => onDeleteFrame(label, file)}>
                         ✕
                       </AsyncButton>
@@ -431,6 +436,14 @@ export default function Training() {
               </div>
             </div>
           </section>
+        )}
+        {lightbox && (
+          <div className="lightbox" role="dialog" onClick={() => setLightbox(null)}>
+            <img src={lightbox} alt="captura ampliada" />
+            <button className="ghost" aria-label="Fechar" onClick={() => setLightbox(null)}>
+              ✕
+            </button>
+          </div>
         )}
       </main>
     </>

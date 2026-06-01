@@ -241,6 +241,16 @@ describe("Training", () => {
     await waitFor(() => expect(api.captureFrame).toHaveBeenCalledWith(1, "aberto"));
   });
 
+  it("opens a captured frame in a lightbox and closes it", async () => {
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    await user.click(await screen.findByAltText("f1.jpg")); // miniatura
+    expect(await screen.findByAltText("captura ampliada")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByAltText("captura ampliada")).toBeNull();
+  });
+
   it("deletes a frame", async () => {
     const user = userEvent.setup();
     render(<Training />);

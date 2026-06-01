@@ -212,7 +212,19 @@ select {
 .gallery h3 { margin: 0 0 0.4rem; text-transform: capitalize; color: var(--muted); }
 .thumbs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .thumb { position: relative; }
-.thumb img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; }
+.thumb img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; cursor: zoom-in; }
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  cursor: zoom-out;
+}
+.lightbox img { max-width: 92vw; max-height: 92vh; object-fit: contain; border-radius: 8px; }
+.lightbox button { position: fixed; top: 12px; right: 12px; width: auto; margin: 0; }
 .thumb button { position: absolute; top: 2px; right: 2px; width: auto; margin: 0; padding: 0 0.4rem; border-radius: 6px; border: none; background: rgba(15,23,42,0.7); color: var(--text); cursor: pointer; }
 .model-detail .cam-form input[type="number"] { flex: 0 0 5rem; }
 .status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
