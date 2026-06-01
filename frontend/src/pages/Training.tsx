@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   activateModel,
-  auth,
   captureFrame,
   createModel,
   deleteModelFrame,
