@@ -34,6 +34,8 @@ vi.mock("./lib/api", () => ({
   listEvents: vi.fn().mockResolvedValue([]),
   eventSnapshotUrl: () => "",
   getSystemStatus: vi.fn().mockResolvedValue({ backend: true, go2rtc: true, ai: true }),
+  getAccessInfo: vi.fn(),
+  getHealth: vi.fn(),
 }));
 
 function renderAt(path: string) {
@@ -57,13 +59,13 @@ describe("App routing", () => {
   it("renders the grid when logged in", async () => {
     state.loggedIn = true;
     renderAt("/");
-    expect(await screen.findByRole("button", { name: "Sair" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Menu de ações" })).toBeInTheDocument();
   });
 
   it("redirects unknown routes home", async () => {
     state.loggedIn = true;
     renderAt("/rota-inexistente");
-    expect(await screen.findByRole("button", { name: "Sair" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Menu de ações" })).toBeInTheDocument();
   });
 
   it("renders the training page on /treinos when logged in", async () => {

@@ -41,6 +41,17 @@ const FOUND = {
 
 const ONE = [{ id: 1, name: "portao", source: "rtsp://x", kind: "rtsp", ptz_enabled: false }];
 
+// o formulário e o "Descobrir" agora ficam atrás do menu de ações (☰ →
+// ➕ Adicionar câmera). Helper que abre o menu e revela o formulário.
+async function openForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Menu de ações" }));
+  await user.click(screen.getByRole("button", { name: /Adicionar câmera/ }));
+}
+
+async function openMenu(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Menu de ações" }));
+}
+
 beforeEach(() => {
   navigate.mockReset();
   api.auth.logout.mockReset();
@@ -80,6 +91,7 @@ describe("Grid", () => {
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
     api.listCameras.mockResolvedValue(ONE);
+    await openForm(user);
     await user.type(screen.getByPlaceholderText(/nome/), "portao");
     await user.type(screen.getByPlaceholderText(/source/), "rtsp://x");
     await user.selectOptions(screen.getByLabelText("tipo"), "dvrip");
@@ -100,6 +112,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.type(screen.getByPlaceholderText(/nome/), "portao");
     await user.type(
       screen.getByPlaceholderText(/source/),
@@ -156,6 +169,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.type(screen.getByPlaceholderText(/nome/), "portao");
     await user.type(screen.getByPlaceholderText(/source/), "rtsp://x");
     await user.click(screen.getByRole("button", { name: /Cadastrar/ }));
@@ -167,6 +181,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.type(screen.getByPlaceholderText(/nome/), "portao");
     await user.type(screen.getByPlaceholderText(/source/), "rtsp://x");
     await user.click(screen.getByRole("button", { name: /Cadastrar/ }));
@@ -179,6 +194,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.type(screen.getByPlaceholderText(/nome/), "portao");
     await user.type(screen.getByPlaceholderText(/source/), "rtsp://x");
     await user.click(screen.getByRole("button", { name: /Salvando|Cadastrar/ }));
@@ -221,6 +237,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.click(screen.getByRole("button", { name: "Descobrir" }));
     expect(await screen.findByText(/254 IPs varridos/)).toBeInTheDocument();
     expect(screen.getByText(/192\.168\.0\.12 — portas 554/)).toBeInTheDocument();
@@ -242,6 +259,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.click(screen.getByRole("button", { name: "Descobrir" }));
     expect(
       await screen.findByText(/Nenhuma câmera respondeu nas portas RTSP\/DVRIP/),
@@ -255,6 +273,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.click(screen.getByRole("button", { name: "Descobrir" }));
     expect(await screen.findByRole("button", { name: "Procurando…" })).toBeDisabled();
     resolve(FOUND);
@@ -265,6 +284,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.click(screen.getByRole("button", { name: "Descobrir" }));
     expect(await screen.findByText("scan falhou")).toBeInTheDocument();
   });
@@ -274,6 +294,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openForm(user);
     await user.click(screen.getByRole("button", { name: "Descobrir" }));
     expect(await screen.findByText("Erro ao descobrir")).toBeInTheDocument();
   });
@@ -282,6 +303,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openMenu(user);
     await user.click(screen.getByRole("button", { name: "🧠 Treinos" }));
     expect(navigate).toHaveBeenCalledWith("/treinos");
   });
@@ -290,6 +312,7 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openMenu(user);
     await user.click(screen.getByRole("button", { name: "🔔 Eventos" }));
     expect(navigate).toHaveBeenCalledWith("/eventos");
   });
@@ -298,15 +321,26 @@ describe("Grid", () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
+    await openMenu(user);
     await user.click(screen.getByRole("button", { name: "📲 Notificações" }));
     expect(navigate).toHaveBeenCalledWith("/notificacoes");
+  });
+
+  it("navigates to the health page", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await openMenu(user);
+    await user.click(screen.getByRole("button", { name: "❤️ Saúde" }));
+    expect(navigate).toHaveBeenCalledWith("/saude");
   });
 
   it("logs out and navigates to /login", async () => {
     const user = userEvent.setup();
     render(<Grid />);
     await screen.findByText(/Nenhuma câmera/);
-    await user.click(screen.getByRole("button", { name: "Sair" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("button", { name: "🚪 Sair" }));
     expect(api.auth.logout).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith("/login");
   });

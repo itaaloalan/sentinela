@@ -12,6 +12,7 @@ import {
 } from "../lib/api";
 import { CameraVideo } from "../components/CameraVideo";
 import { AsyncButton } from "../components/AsyncButton";
+import { ActionsMenu } from "../components/ActionsMenu";
 
 const KINDS = ["rtsp", "dvrip", "onvif"];
 
@@ -28,6 +29,7 @@ export default function Grid() {
   const [discovering, setDiscovering] = useState(false);
   const [found, setFound] = useState<DiscoveredCamera[]>([]);
   const [log, setLog] = useState<string[]>([]);
+  const [showForm, setShowForm] = useState(false);
   const nav = useNavigate();
 
   const refresh = useCallback(() => {
@@ -55,6 +57,7 @@ export default function Grid() {
   }
 
   function onEdit(cam: Camera) {
+    setShowForm(true);
     setEditingId(cam.id);
     setName(cam.name);
     setSource(cam.source);
@@ -135,14 +138,20 @@ export default function Grid() {
       <header className="app-header">
         <h1>🛡️ Sentinela</h1>
         <span className="spacer" />
-        <button className="ghost" onClick={() => nav("/treinos")}>🧠 Treinos</button>
-        <button className="ghost" onClick={() => nav("/eventos")}>🔔 Eventos</button>
-        <button className="ghost" onClick={() => nav("/notificacoes")}>📲 Notificações</button>
-        <button className="ghost" onClick={logout}>Sair</button>
+        <ActionsMenu>
+          <button className="ghost" onClick={() => setShowForm((s) => !s)}>➕ Adicionar câmera</button>
+          <button className="ghost" onClick={() => nav("/treinos")}>🧠 Treinos</button>
+          <button className="ghost" onClick={() => nav("/eventos")}>🔔 Eventos</button>
+          <button className="ghost" onClick={() => nav("/notificacoes")}>📲 Notificações</button>
+          <button className="ghost" onClick={() => nav("/saude")}>❤️ Saúde</button>
+          <button className="ghost" onClick={logout}>🚪 Sair</button>
+        </ActionsMenu>
       </header>
       <main>
         {error && <div className="error">{error}</div>}
 
+        {showForm && (
+        <>
         <form className="cam-form" onSubmit={onSubmit}>
           <input
             placeholder="nome (ex.: portao)"
@@ -207,6 +216,8 @@ export default function Grid() {
               </div>
             ))}
           </div>
+        )}
+        </>
         )}
 
         {cameras.length === 0 && !error && (

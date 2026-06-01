@@ -11,6 +11,7 @@ import {
   discoverCameras,
   eventSnapshotUrl,
   getAccessInfo,
+  getHealth,
   getNotifyConfig,
   getSystemStatus,
   sendTestNotification,
@@ -359,6 +360,22 @@ describe("AI model API", () => {
     fetchMock.mockResolvedValue(mockResponse({ json: info }));
     expect(await getAccessInfo()).toEqual(info);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/access");
+  });
+
+  it("getHealth GETs /api/status/health", async () => {
+    auth.token = "t";
+    const info = {
+      events_today: 3,
+      disk: null,
+      temperature_c: null,
+      cameras: [],
+      go2rtc: { reachable: true, log: [] },
+      ai: { online: false, last_seen_seconds: null },
+      backend: { log: [] },
+    };
+    fetchMock.mockResolvedValue(mockResponse({ json: info }));
+    expect(await getHealth()).toEqual(info);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/status/health");
   });
 
   it("getNotifyConfig GETs /api/notify/config", async () => {

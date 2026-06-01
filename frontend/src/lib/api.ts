@@ -158,6 +158,7 @@ export interface AIModel {
 
 export interface ModelPatch {
   name?: string;
+  classes?: string[];
   alert_label?: string;
   debounce_seconds?: number;
 }
@@ -294,6 +295,22 @@ export interface SystemStatusInfo {
 
 export async function getSystemStatus(): Promise<SystemStatusInfo> {
   return (await req("/api/status")).json();
+}
+
+// ---- Saúde do sistema / dashboard ----
+
+export interface HealthInfo {
+  events_today: number;
+  disk: { total: number; used: number; free: number; percent: number } | null;
+  temperature_c: number | null;
+  cameras: { name: string; online: boolean }[];
+  go2rtc: { reachable: boolean; log: string[] };
+  ai: { online: boolean; last_seen_seconds: number | null };
+  backend: { log: string[] };
+}
+
+export async function getHealth(): Promise<HealthInfo> {
+  return (await req("/api/status/health")).json();
 }
 
 // ---- Acesso remoto (compartilhar) ----

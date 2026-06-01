@@ -5,6 +5,7 @@ import Grid from "./pages/Grid";
 import Training from "./pages/Training";
 import Events from "./pages/Events";
 import Notifications from "./pages/Notifications";
+import Health from "./pages/Health";
 import { SystemStatus } from "./components/SystemStatus";
 import { AccessShare } from "./components/AccessShare";
 
@@ -52,6 +53,14 @@ export default function App() {
         element={
           <Protected>
             <Notifications />
+          </Protected>
+        }
+      />
+      <Route
+        path="/saude"
+        element={
+          <Protected>
+            <Health />
           </Protected>
         }
       />
