@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // escuta em 0.0.0.0 — sem isso o Vite só atende em localhost e a porta
+    // 5173 não é alcançável pela Tailscale/LAN (acesso remoto não funciona).
+    host: true,
     proxy: {
       "/api": { target: "http://localhost:8000", changeOrigin: true },
       // go2rtc (vídeo ao vivo WebRTC): proxia API + WebSocket de sinalização,
