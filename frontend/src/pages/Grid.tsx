@@ -7,6 +7,7 @@ import {
   discoverCameras,
   listCameras,
   streamWsUrl,
+  updateCamera,
   type Camera,
   type DiscoveredCamera,
 } from "../lib/api";
@@ -39,6 +40,7 @@ export default function Grid() {
   const [kind, setKind] = useState("rtsp");
   const [ptz, setPtz] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [found, setFound] = useState<DiscoveredCamera[]>([]);
   const [log, setLog] = useState<string[]>([]);
@@ -59,22 +61,42 @@ export default function Grid() {
     nav("/login");
   }
 
-  async function onAdd(e: React.FormEvent) {
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setSource("");
+    setPassword("");
+    setKind("rtsp");
+    setPtz(false);
+  }
+
+  function onEdit(cam: Camera) {
+    setEditingId(cam.id);
+    setName(cam.name);
+    setSource(cam.source);
+    setPassword("");
+    setKind(cam.kind);
+    setPtz(cam.ptz_enabled);
+    setError("");
+  }
+
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
       // a senha digitada substitui o placeholder SENHA do source sugerido
       const finalSource = password ? source.split("SENHA").join(password) : source;
-      await createCamera({ name, source: finalSource, kind, ptz_enabled: ptz });
-      setName("");
-      setSource("");
-      setPassword("");
-      setKind("rtsp");
-      setPtz(false);
+      const payload = { name, source: finalSource, kind, ptz_enabled: ptz };
+      if (editingId !== null) {
+        await updateCamera(editingId, payload);
+      } else {
+        await createCamera(payload);
+      }
+      resetForm();
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao cadastrar");
+      setError(err instanceof Error ? err.message : "Erro ao salvar a câmera");
     } finally {
       setBusy(false);
     }
@@ -134,7 +156,7 @@ export default function Grid() {
       <main>
         {error && <div className="error">{error}</div>}
 
-        <form className="cam-form" onSubmit={onAdd}>
+        <form className="cam-form" onSubmit={onSubmit}>
           <input
             placeholder="nome (ex.: portao)"
             value={name}
@@ -168,7 +190,14 @@ export default function Grid() {
             />
             PTZ
           </label>
-          <button disabled={busy}>{busy ? "Salvando…" : "Cadastrar câmera"}</button>
+          <button disabled={busy}>
+            {busy ? "Salvando…" : editingId !== null ? "Salvar" : "Cadastrar câmera"}
+          </button>
+          {editingId !== null && (
+            <button type="button" className="ghost" onClick={resetForm}>
+              Cancelar
+            </button>
+          )}
           <button type="button" className="ghost" disabled={discovering} onClick={onDiscover}>
             {discovering ? "Procurando…" : "Descobrir"}
           </button>
@@ -205,6 +234,7 @@ export default function Grid() {
               <div className="label">
                 {cam.name}
                 <span className="spacer" />
+                <button className="ghost" onClick={() => onEdit(cam)}>Editar</button>
                 <button className="ghost" onClick={() => onDelete(cam.id)}>Excluir</button>
               </div>
             </div>

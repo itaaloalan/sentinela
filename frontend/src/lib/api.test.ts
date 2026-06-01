@@ -8,6 +8,7 @@ import {
   login,
   snapshotUrl,
   streamWsUrl,
+  updateCamera,
 } from "./api";
 
 function mockResponse(opts: {
@@ -108,6 +109,22 @@ describe("authenticated requests", () => {
     expect(cam).toEqual({ id: 7, name: "portao" });
     const init = fetchMock.mock.calls[0][1];
     expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toMatchObject({ name: "portao" });
+  });
+
+  it("updateCamera issues a PUT with JSON", async () => {
+    auth.token = "tok";
+    fetchMock.mockResolvedValue(mockResponse({ json: { id: 7, name: "portao" } }));
+    const cam = await updateCamera(7, {
+      name: "portao",
+      source: "rtsp://x",
+      kind: "rtsp",
+      ptz_enabled: false,
+    });
+    expect(cam).toEqual({ id: 7, name: "portao" });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/cameras/7");
+    expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toMatchObject({ name: "portao" });
   });
 

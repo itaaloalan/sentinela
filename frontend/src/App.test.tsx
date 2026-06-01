@@ -15,6 +15,7 @@ vi.mock("./lib/api", () => ({
   login: vi.fn(),
   listCameras: vi.fn().mockResolvedValue([]),
   createCamera: vi.fn(),
+  updateCamera: vi.fn(),
   deleteCamera: vi.fn(),
   discoverCameras: vi.fn().mockResolvedValue({ subnet: "", scanned: 0, reachable: [], candidates: [] }),
   streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,

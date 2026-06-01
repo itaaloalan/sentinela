@@ -57,6 +57,50 @@ def test_create_succeeds_even_if_go2rtc_down(client, auth_headers):
     assert len(client.get("/api/cameras", headers=auth_headers).json()) == 1
 
 
+def test_update_camera_same_name(client, auth_headers):
+    cid = _create(client, auth_headers).json()["id"]
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        router.put(STREAMS_URL).mock(return_value=httpx.Response(200))
+        resp = client.put(
+            f"/api/cameras/{cid}",
+            json={**CAM, "source": "rtsp://nova"},
+            headers=auth_headers,
+        )
+    assert resp.status_code == 200
+    assert resp.json()["source"] == "rtsp://nova"
+
+
+def test_update_camera_rename_unregisters_old(client, auth_headers):
+    cid = _create(client, auth_headers).json()["id"]
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        router.put(STREAMS_URL).mock(return_value=httpx.Response(200))
+        delete = router.delete(STREAMS_URL).mock(return_value=httpx.Response(200))
+        resp = client.put(
+            f"/api/cameras/{cid}",
+            json={**CAM, "name": "portao2"},
+            headers=auth_headers,
+        )
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "portao2"
+    assert delete.called  # desregistrou o nome antigo no go2rtc
+
+
+def test_update_camera_duplicate_name_returns_409(client, auth_headers):
+    cid = _create(client, auth_headers).json()["id"]
+    _create(client, auth_headers, {**CAM, "name": "outra"})
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        router.put(STREAMS_URL).mock(return_value=httpx.Response(200))
+        resp = client.put(
+            f"/api/cameras/{cid}", json={**CAM, "name": "outra"}, headers=auth_headers
+        )
+    assert resp.status_code == 409
+
+
+def test_update_camera_not_found(client, auth_headers):
+    resp = client.put("/api/cameras/9999", json=CAM, headers=auth_headers)
+    assert resp.status_code == 404
+
+
 def test_delete_camera(client, auth_headers):
     cid = _create(client, auth_headers).json()["id"]
     with respx.mock(assert_all_mocked=False) as router:

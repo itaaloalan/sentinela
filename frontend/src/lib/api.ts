@@ -57,6 +57,15 @@ export async function createCamera(cam: CameraIn): Promise<Camera> {
   return res.json();
 }
 
+export async function updateCamera(id: number, cam: CameraIn): Promise<Camera> {
+  const res = await req(`/api/cameras/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cam),
+  });
+  return res.json();
+}
+
 export async function deleteCamera(id: number): Promise<void> {
   await req(`/api/cameras/${id}`, { method: "DELETE" });
 }

@@ -63,6 +63,34 @@ async def create_camera(
     return record
 
 
+@router.put("/{cid}", response_model=CameraOut)
+async def update_camera(
+    cid: int,
+    cam: CameraIn,
+    _: str = Depends(current_user),
+    session: Session = Depends(get_session),
+):
+    record = session.get(Camera, cid)
+    if record is None:
+        raise HTTPException(404, "Câmera não encontrada")
+    old_name = record.name
+    record.name = cam.name
+    record.source = cam.source
+    record.kind = cam.kind
+    record.ptz_enabled = cam.ptz_enabled
+    session.add(record)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(409, "Já existe uma câmera com esse nome")
+    session.refresh(record)
+    if old_name != record.name:
+        await unregister_stream(old_name)
+    await register_stream(record.name, record.source)
+    return record
+
+
 @router.delete("/{cid}", status_code=204)
 async def delete_camera(
     cid: int,

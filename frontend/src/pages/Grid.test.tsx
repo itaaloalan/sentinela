@@ -10,6 +10,7 @@ const api = {
   auth: { logout: vi.fn() },
   listCameras: vi.fn(),
   createCamera: vi.fn(),
+  updateCamera: vi.fn(),
   deleteCamera: vi.fn(),
   discoverCameras: vi.fn(),
 };
@@ -17,6 +18,7 @@ vi.mock("../lib/api", () => ({
   auth: { logout: (...a: unknown[]) => api.auth.logout(...a) },
   listCameras: (...a: unknown[]) => api.listCameras(...a),
   createCamera: (...a: unknown[]) => api.createCamera(...a),
+  updateCamera: (...a: unknown[]) => api.updateCamera(...a),
   deleteCamera: (...a: unknown[]) => api.deleteCamera(...a),
   discoverCameras: (...a: unknown[]) => api.discoverCameras(...a),
   streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
@@ -42,6 +44,7 @@ beforeEach(() => {
   api.auth.logout.mockReset();
   api.listCameras.mockReset().mockResolvedValue([]);
   api.createCamera.mockReset().mockResolvedValue(ONE[0]);
+  api.updateCamera.mockReset().mockResolvedValue(ONE[0]);
   api.deleteCamera.mockReset().mockResolvedValue(undefined);
   api.discoverCameras.mockReset().mockResolvedValue(FOUND);
 });
@@ -112,6 +115,40 @@ describe("Grid", () => {
     );
   });
 
+  it("edits a camera via the Editar button", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText("portao");
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    expect((screen.getByPlaceholderText(/nome/) as HTMLInputElement).value).toBe("portao");
+    expect((screen.getByPlaceholderText(/source/) as HTMLInputElement).value).toBe("rtsp://x");
+    expect(screen.getByRole("button", { name: "Salvar" })).toBeInTheDocument();
+    const src = screen.getByPlaceholderText(/source/);
+    await user.clear(src);
+    await user.type(src, "rtsp://nova");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() =>
+      expect(api.updateCamera).toHaveBeenCalledWith(1, {
+        name: "portao",
+        source: "rtsp://nova",
+        kind: "rtsp",
+        ptz_enabled: false,
+      }),
+    );
+  });
+
+  it("cancels editing and restores the create form", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText("portao");
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect((screen.getByPlaceholderText(/nome/) as HTMLInputElement).value).toBe("");
+    expect(screen.getByRole("button", { name: "Cadastrar câmera" })).toBeInTheDocument();
+  });
+
   it("shows an error when creating fails", async () => {
     api.createCamera.mockRejectedValue(new Error("dup"));
     const user = userEvent.setup();
@@ -131,7 +168,7 @@ describe("Grid", () => {
     await user.type(screen.getByPlaceholderText(/nome/), "portao");
     await user.type(screen.getByPlaceholderText(/source/), "rtsp://x");
     await user.click(screen.getByRole("button", { name: /Cadastrar/ }));
-    expect(await screen.findByText("Erro ao cadastrar")).toBeInTheDocument();
+    expect(await screen.findByText("Erro ao salvar a câmera")).toBeInTheDocument();
   });
 
   it("shows progress text while saving", async () => {
