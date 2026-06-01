@@ -11,6 +11,7 @@ import {
   type DiscoveredCamera,
 } from "../lib/api";
 import { CameraVideo } from "../components/CameraVideo";
+import { AsyncButton } from "../components/AsyncButton";
 
 const KINDS = ["rtsp", "dvrip", "onvif"];
 
@@ -220,7 +221,7 @@ export default function Grid() {
                 {cam.name}
                 <span className="spacer" />
                 <button className="ghost" onClick={() => onEdit(cam)}>Editar</button>
-                <button className="ghost" onClick={() => onDelete(cam.id)}>Excluir</button>
+                <AsyncButton className="ghost" onClick={() => onDelete(cam.id)}>Excluir</AsyncButton>
               </div>
             </div>
           ))}

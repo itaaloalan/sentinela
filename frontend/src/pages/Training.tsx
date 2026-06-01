@@ -17,6 +17,7 @@ import {
   type TestResult,
 } from "../lib/api";
 import { CameraVideo } from "../components/CameraVideo";
+import { AsyncButton } from "../components/AsyncButton";
 
 export default function Training() {
   const [models, setModels] = useState<AIModel[]>([]);
@@ -180,9 +181,9 @@ export default function Training() {
 
             <div className="capture-row">
               {selected.classes.map((label) => (
-                <button key={label} className="ghost" onClick={() => onCapture(label)}>
+                <AsyncButton key={label} className="ghost" onClick={() => onCapture(label)}>
                   Capturar “{label}” ({selected.frames[label] ?? 0})
-                </button>
+                </AsyncButton>
               ))}
             </div>
 
@@ -193,9 +194,9 @@ export default function Training() {
                   {(framesByLabel[label] ?? []).map((file) => (
                     <div className="thumb" key={file}>
                       <img src={modelFrameUrl(selected.id, label, file)} alt={file} />
-                      <button className="ghost" onClick={() => onDeleteFrame(label, file)}>
+                      <AsyncButton className="ghost" onClick={() => onDeleteFrame(label, file)}>
                         ✕
-                      </button>
+                      </AsyncButton>
                     </div>
                   ))}
                 </div>
@@ -213,15 +214,15 @@ export default function Training() {
                   onChange={(e) => setCrop((c) => ({ ...c, [k]: e.target.value }))}
                 />
               ))}
-              <button className="ghost" onClick={onSaveCrop}>Salvar crop</button>
+              <AsyncButton className="ghost" onClick={onSaveCrop}>Salvar crop</AsyncButton>
             </div>
 
             <div className="cam-form">
-              <button className="ghost" onClick={onTrain}>Treinar</button>
-              <button className="ghost" onClick={onTest}>Testar ao vivo</button>
-              <button className="ghost" onClick={onToggleActive}>
+              <AsyncButton className="ghost" onClick={onTrain}>Treinar</AsyncButton>
+              <AsyncButton className="ghost" onClick={onTest}>Testar ao vivo</AsyncButton>
+              <AsyncButton className="ghost" onClick={onToggleActive}>
                 {selected.active ? "Desativar alerta" : "Ativar alerta"}
-              </button>
+              </AsyncButton>
               <span>
                 status: {selected.status}
                 {selected.accuracy !== null ? ` · acc ${selected.accuracy}` : ""}
