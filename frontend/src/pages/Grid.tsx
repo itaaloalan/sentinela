@@ -15,9 +15,11 @@ import {
 const KINDS = ["rtsp", "dvrip", "onvif"];
 
 // Vídeo ao vivo via WebRTC (web component <video-stream> do go2rtc).
-// src/mode/background são propriedades, setadas via ref.
+// src/mode/background são propriedades, setadas via ref. Áudio começa mudo
+// (política de autoplay) e o usuário desmuta no botão.
 function CameraVideo({ name }: { name: string }) {
   const ref = useRef<HTMLElement>(null);
+  const [muted, setMuted] = useState(true);
   useEffect(() => {
     const el = ref.current as unknown as {
       mode: string;
@@ -28,7 +30,23 @@ function CameraVideo({ name }: { name: string }) {
     el.background = false;
     el.src = streamWsUrl(name);
   }, [name]);
-  return <video-stream ref={ref} className="cam-video" />;
+  useEffect(() => {
+    const video = (ref.current as HTMLElement).querySelector("video");
+    if (video) (video as HTMLVideoElement).muted = muted;
+  }, [muted]);
+  return (
+    <div className="cam-video-wrap">
+      <video-stream ref={ref} className="cam-video" />
+      <button
+        type="button"
+        className="mute-btn"
+        onClick={() => setMuted((m) => !m)}
+        aria-label={muted ? "Ativar som" : "Mutar"}
+      >
+        {muted ? "🔇" : "🔊"}
+      </button>
+    </div>
+  );
 }
 
 export default function Grid() {
