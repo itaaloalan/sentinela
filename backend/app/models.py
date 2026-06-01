@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from . import frames, training
+from . import frames, inference, training
 from .auth import current_user, media_user
 from .database import get_session
 from .db_models import AIModel, Camera
@@ -184,13 +184,23 @@ def status(
 
 
 @router.post("/{mid}/test")
-def test(
+async def test(
     mid: int,
     _: str = Depends(current_user),
     session: Session = Depends(get_session),
 ):
-    _get(session, mid)
-    return {"label": None, "confidence": None, "detail": "stub — Estágio 2"}
+    """Classifica um frame ao vivo com o modelo treinado (label + confiança)."""
+    rec = _get(session, mid)
+    cam = session.get(Camera, rec.camera_id)
+    if cam is None:
+        raise HTTPException(400, "Câmera do modelo não encontrada")
+    crop = json.loads(rec.crop_json) if rec.crop_json else None
+    try:
+        return await inference.classify_live(rec, cam, crop)
+    except (RuntimeError, ImportError) as e:
+        raise HTTPException(501, str(e))  # não treinado / ultralytics ausente
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"go2rtc indisponível: {e}")
 
 
 @router.post("/{mid}/activate")

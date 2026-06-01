@@ -10,9 +10,11 @@ import {
   listModelFrames,
   modelFrameUrl,
   setModelCrop,
+  testModel,
   trainModel,
   type AIModel,
   type Camera,
+  type TestResult,
 } from "../lib/api";
 import { CameraVideo } from "../components/CameraVideo";
 
@@ -25,6 +27,7 @@ export default function Training() {
   const [newName, setNewName] = useState("portao");
   const [newCameraId, setNewCameraId] = useState<number | "">("");
   const [crop, setCrop] = useState({ x1: "0", y1: "0", x2: "0", y2: "0" });
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
   const nav = useNavigate();
 
   async function run(fn: () => Promise<void>) {
@@ -108,6 +111,10 @@ export default function Training() {
       await trainModel(selected!.id);
       await refresh();
     });
+  }
+
+  function onTest() {
+    return run(async () => setTestResult(await testModel(selected!.id)));
   }
 
   function onToggleActive() {
@@ -211,6 +218,7 @@ export default function Training() {
 
             <div className="cam-form">
               <button className="ghost" onClick={onTrain}>Treinar</button>
+              <button className="ghost" onClick={onTest}>Testar ao vivo</button>
               <button className="ghost" onClick={onToggleActive}>
                 {selected.active ? "Desativar alerta" : "Ativar alerta"}
               </button>
@@ -218,6 +226,14 @@ export default function Training() {
                 status: {selected.status}
                 {selected.accuracy !== null ? ` · acc ${selected.accuracy}` : ""}
               </span>
+              {testResult && (
+                <span className="test-result">
+                  → {testResult.label ?? "?"}
+                  {testResult.confidence !== null
+                    ? ` (${Math.round(testResult.confidence * 100)}%)`
+                    : ""}
+                </span>
+              )}
             </div>
           </section>
         )}

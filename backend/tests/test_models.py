@@ -148,10 +148,43 @@ def test_train_schedules_job(client, auth_headers, monkeypatch):
     assert client.get(f"/api/models/{mid}/status", headers=auth_headers).json()["status"] == "treinando"
 
 
-def test_test_endpoint_stub(client, auth_headers):
+def test_test_inference_not_trained_returns_501(client, auth_headers):
     cid = _make_camera()
     mid = _create_model(client, auth_headers, cid)["id"]
-    assert client.post(f"/api/models/{mid}/test", headers=auth_headers).json()["label"] is None
+    # sem pesos treinados → inference levanta RuntimeError → 501
+    resp = client.post(f"/api/models/{mid}/test", headers=auth_headers)
+    assert resp.status_code == 501
+
+
+def test_test_inference_ok(client, auth_headers, monkeypatch):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+
+    async def fake_classify(model, camera, crop):
+        return {"label": "aberto", "confidence": 0.9}
+
+    monkeypatch.setattr(models_module.inference, "classify_live", fake_classify)
+    resp = client.post(f"/api/models/{mid}/test", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == {"label": "aberto", "confidence": 0.9}
+
+
+def test_test_inference_camera_missing_returns_400(client, auth_headers):
+    mid = _create_model(client, auth_headers, 9999)["id"]  # câmera inexistente
+    resp = client.post(f"/api/models/{mid}/test", headers=auth_headers)
+    assert resp.status_code == 400
+
+
+def test_test_inference_go2rtc_down_returns_502(client, auth_headers, monkeypatch):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
+
+    async def boom(model, camera, crop):
+        raise httpx.ConnectError("recusado")
+
+    monkeypatch.setattr(models_module.inference, "classify_live", boom)
+    resp = client.post(f"/api/models/{mid}/test", headers=auth_headers)
+    assert resp.status_code == 502
 
 
 def test_activate_and_deactivate(client, auth_headers):

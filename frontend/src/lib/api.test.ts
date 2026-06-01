@@ -15,6 +15,7 @@ import {
   modelFrameUrl,
   ptzMove,
   setModelCrop,
+  testModel,
   snapshotUrl,
   streamWsUrl,
   trainModel,
@@ -261,5 +262,12 @@ describe("AI model API", () => {
     fetchMock.mockResolvedValue(mockResponse({ json: { active: true } }));
     await activateModel(1, true);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/models/1/activate?active=true");
+  });
+
+  it("testModel posts to /test", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { label: "aberto", confidence: 0.9 } }));
+    expect(await testModel(1)).toEqual({ label: "aberto", confidence: 0.9 });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/models/1/test");
   });
 });

@@ -19,6 +19,7 @@ const api = {
   deleteModelFrame: vi.fn(),
   setModelCrop: vi.fn(),
   trainModel: vi.fn(),
+  testModel: vi.fn(),
   activateModel: vi.fn(),
 };
 vi.mock("../lib/api", () => ({
@@ -31,6 +32,7 @@ vi.mock("../lib/api", () => ({
   deleteModelFrame: (...a: unknown[]) => api.deleteModelFrame(...a),
   setModelCrop: (...a: unknown[]) => api.setModelCrop(...a),
   trainModel: (...a: unknown[]) => api.trainModel(...a),
+  testModel: (...a: unknown[]) => api.testModel(...a),
   activateModel: (...a: unknown[]) => api.activateModel(...a),
   modelFrameUrl: (id: number, label: string, f: string) =>
     `/api/models/${id}/frames/${label}/${f}?token=`,
@@ -60,6 +62,7 @@ beforeEach(() => {
   api.deleteModelFrame.mockReset().mockResolvedValue(undefined);
   api.setModelCrop.mockReset().mockResolvedValue(M1);
   api.trainModel.mockReset().mockResolvedValue({ status: "treinando" });
+  api.testModel.mockReset().mockResolvedValue({ label: "aberto", confidence: 0.87 });
   api.activateModel.mockReset().mockResolvedValue({ active: false });
 });
 
@@ -153,6 +156,23 @@ describe("Training", () => {
     await user.click(await screen.findByText(/portao · pronto/));
     await user.click(await screen.findByRole("button", { name: "Treinar" }));
     await waitFor(() => expect(api.trainModel).toHaveBeenCalledWith(1));
+  });
+
+  it("tests the model live and shows label + confidence", async () => {
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    await user.click(await screen.findByRole("button", { name: "Testar ao vivo" }));
+    expect(await screen.findByText(/aberto \(87%\)/)).toBeInTheDocument();
+  });
+
+  it("shows a fallback when the test result is empty", async () => {
+    api.testModel.mockResolvedValue({ label: null, confidence: null });
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    await user.click(await screen.findByRole("button", { name: "Testar ao vivo" }));
+    expect(await screen.findByText(/→ \?/)).toBeInTheDocument();
   });
 
   it("toggles the alert active state", async () => {

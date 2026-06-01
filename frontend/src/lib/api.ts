@@ -205,3 +205,12 @@ export async function activateModel(id: number, active: boolean): Promise<{ acti
     await req(`/api/models/${id}/activate?active=${active}`, { method: "POST" })
   ).json();
 }
+
+export interface TestResult {
+  label: string | null;
+  confidence: number | null;
+}
+
+export async function testModel(id: number): Promise<TestResult> {
+  return (await req(`/api/models/${id}/test`, { method: "POST" })).json();
+}

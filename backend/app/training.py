@@ -38,7 +38,15 @@ def _train_yolo(dataset: Path, epochs: int) -> float:
     from ultralytics import YOLO  # import pesado/lazy (AGPL)
 
     model = YOLO("yolo11n-cls.pt")
-    results = model.train(data=str(dataset), epochs=epochs, imgsz=224)
+    # salva em <ai_data>/<id>/run/weights/best.pt (onde a inferência procura)
+    results = model.train(
+        data=str(dataset),
+        epochs=epochs,
+        imgsz=224,
+        project=str(dataset.parent),
+        name="run",
+        exist_ok=True,
+    )
     model.export(format="onnx")
     return float(results.results_dict.get("metrics/accuracy_top1", 0.0))
 

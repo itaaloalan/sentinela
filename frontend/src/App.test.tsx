@@ -28,6 +28,7 @@ vi.mock("./lib/api", () => ({
   deleteModelFrame: vi.fn(),
   setModelCrop: vi.fn(),
   trainModel: vi.fn(),
+  testModel: vi.fn(),
   activateModel: vi.fn(),
   modelFrameUrl: () => "",
 }));
