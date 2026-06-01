@@ -18,9 +18,11 @@ const FULL = {
   events_today: 5,
   disk: { total: 100, used: 40, free: 64424509440, percent: 40 },
   temperature_c: 51.2,
+  internet: true,
+  storage_ok: true,
   cameras: [
-    { name: "portao", online: true },
-    { name: "quintal", online: false },
+    { name: "portao", online: true, obstructed: true, brightness: 4 },
+    { name: "quintal", online: false, obstructed: null, brightness: null },
   ],
   go2rtc: { reachable: true, log: ["linha1", "linha2"] },
   ai: { online: true, last_seen_seconds: 4 },
@@ -48,8 +50,18 @@ describe("Health", () => {
     expect(screen.getByText("1/2 online")).toBeInTheDocument();
     expect(screen.getByText(/40% · 60.0 GB livre/)).toBeInTheDocument();
     expect(screen.getByText("51.2 °C")).toBeInTheDocument();
+    expect(screen.getAllByText("🟢 ok")).toHaveLength(2); // internet + gravação
     expect(screen.getByText(/🟢 portao/)).toBeInTheDocument();
+    expect(screen.getByText(/obstruída\/coberta/)).toBeInTheDocument();
     expect(screen.getByText(/🔴 quintal/)).toBeInTheDocument();
+  });
+
+  it("flags internet down and recording failure", async () => {
+    api.getHealth.mockResolvedValue({ ...FULL, internet: false, storage_ok: false });
+    renderPage();
+    await screen.findByText("5");
+    expect(screen.getByText("🔴 caiu")).toBeInTheDocument();
+    expect(screen.getByText("🔴 falha")).toBeInTheDocument();
   });
 
   it("expands and collapses a service log on click", async () => {

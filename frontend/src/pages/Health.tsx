@@ -72,12 +72,23 @@ export default function Health() {
             <span>Temperatura</span>
             <strong>{h.temperature_c != null ? `${h.temperature_c} °C` : "—"}</strong>
           </div>
+          <div className="health-card">
+            <span>Internet</span>
+            <strong>{h.internet ? "🟢 ok" : "🔴 caiu"}</strong>
+          </div>
+          <div className="health-card">
+            <span>Gravação</span>
+            <strong>{h.storage_ok ? "🟢 ok" : "🔴 falha"}</strong>
+          </div>
         </div>
 
         <h2>Câmeras</h2>
         <ul className="health-cams">
           {h.cameras.map((c) => (
-            <li key={c.name}>{c.online ? "🟢" : "🔴"} {c.name}</li>
+            <li key={c.name}>
+              {c.online ? "🟢" : "🔴"} {c.name}
+              {c.obstructed === true && <span className="cam-warn"> ⚠️ obstruída/coberta</span>}
+            </li>
           ))}
         </ul>
 

@@ -343,6 +343,7 @@ button.primary:disabled { opacity: 0.5; }
 .health-card span { color: var(--muted); font-size: 0.8rem; }
 .health-card strong { font-size: 1.1rem; }
 .health-cams { list-style: none; padding: 0; margin: 0 0 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.cam-warn { color: #fbbf24; font-size: 0.85rem; }
 .health-logs { display: flex; flex-direction: column; gap: 0.5rem; }
 .health-service button { width: 100%; margin: 0; text-align: left; }
 .service-log { background: #0b1220; border-radius: 8px; padding: 0.7rem; font-size: 0.78rem; max-height: 16rem; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0.4rem 0 0; }

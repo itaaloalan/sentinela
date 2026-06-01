@@ -303,7 +303,9 @@ export interface HealthInfo {
   events_today: number;
   disk: { total: number; used: number; free: number; percent: number } | null;
   temperature_c: number | null;
-  cameras: { name: string; online: boolean }[];
+  internet: boolean;
+  storage_ok: boolean;
+  cameras: { name: string; online: boolean; obstructed: boolean | null; brightness: number | null }[];
   go2rtc: { reachable: boolean; log: string[] };
   ai: { online: boolean; last_seen_seconds: number | null };
   backend: { log: string[] };

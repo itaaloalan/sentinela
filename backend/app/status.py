@@ -6,8 +6,10 @@
   acontecendo"). O monitor de IA faz heartbeat aqui a cada ciclo.
 """
 import datetime as dt
+import io
 import shutil
 import time
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends
@@ -18,6 +20,7 @@ from .auth import current_user
 from .config import settings
 from .database import get_session
 from .db_models import Camera, Event
+from .go2rtc import grab_frame
 
 router = APIRouter(prefix="/api/status", tags=["status"])
 
@@ -93,14 +96,65 @@ def _events_today(session: Session) -> int:
     return len(session.exec(select(Event).where(Event.created_at >= start)).all())
 
 
-def _camera_status(streams: dict, session: Session) -> list[dict]:
-    """Cada câmera cadastrada + se o go2rtc tem um produtor ativo (online)."""
+def analyze_frame(jpeg: bytes) -> dict:
+    """Brilho e nível de detalhe do frame → flag de câmera obstruída/coberta.
+
+    Coberta/tapada deixa a imagem muito escura (brilho baixo) ou muito uniforme
+    (desvio-padrão baixo, sem textura). Limiares conservadores p/ evitar alarme.
+    """
+    from PIL import Image, ImageStat  # lazy
+
+    img = Image.open(io.BytesIO(jpeg)).convert("L")
+    stat = ImageStat.Stat(img)
+    brightness, detail = stat.mean[0], stat.stddev[0]
+    return {
+        "brightness": round(brightness, 1),
+        "detail": round(detail, 1),
+        "obstructed": brightness < 15 or detail < 8,
+    }
+
+
+async def _camera_status(streams: dict, session: Session) -> list[dict]:
+    """Cada câmera + online (produtor no go2rtc) + obstrução (análise do frame)."""
     out = []
     for cam in session.exec(select(Camera)).all():
         info = streams.get(cam.name)
         online = bool(info and info.get("producers"))
-        out.append({"name": cam.name, "online": online})
+        entry = {"name": cam.name, "online": online, "obstructed": None, "brightness": None}
+        if online:
+            try:
+                jpeg = await grab_frame(cam.name)
+                if jpeg:
+                    a = analyze_frame(jpeg)
+                    entry["obstructed"] = a["obstructed"]
+                    entry["brightness"] = a["brightness"]
+            except (httpx.HTTPError, OSError):
+                pass  # frame indisponível/ilegível → deixa obstrução indeterminada
+        out.append(entry)
     return out
+
+
+async def _internet_ok() -> bool:
+    """Há internet? (consulta best-effort a um host externo)."""
+    try:
+        async with httpx.AsyncClient(timeout=4) as client:
+            resp = await client.get("https://api.ipify.org")
+        return resp.status_code < 500
+    except httpx.HTTPError:
+        return False
+
+
+def _storage_ok() -> bool:
+    """Dá pra gravar snapshots/eventos? (escreve um arquivo de teste no dir de dados)."""
+    try:
+        d = Path(settings.ai_data_dir)
+        d.mkdir(parents=True, exist_ok=True)
+        probe = d / ".write_probe"
+        probe.write_text("ok")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
 
 
 @router.get("")
@@ -120,7 +174,9 @@ async def health(
         "events_today": _events_today(session),
         "disk": _disk(),
         "temperature_c": _cpu_temp(),
-        "cameras": _camera_status(streams or {}, session),
+        "internet": await _internet_ok(),
+        "storage_ok": _storage_ok(),
+        "cameras": await _camera_status(streams or {}, session),
         "go2rtc": {"reachable": streams is not None, "log": await _go2rtc_log()},
         "ai": {"online": _ai_ok(), "last_seen_seconds": last_seen},
         "backend": {"log": applog.recent()},
