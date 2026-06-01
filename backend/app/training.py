@@ -60,8 +60,10 @@ def run_training(model_id: int, epochs: int = 30) -> None:
         dataset = build_dataset(model_id, classes)
         accuracy: float | None = _train_yolo(dataset, epochs)
         status = "pronto"
-    except Exception:
-        accuracy, status = None, "erro"
+    except Exception as exc:
+        # guarda o motivo no status para aparecer na UI (ex.: ultralytics
+        # ausente, classe sem frames, etc.)
+        accuracy, status = None, f"erro: {str(exc)[:200]}"
 
     with Session(engine) as session:
         rec = session.get(AIModel, model_id)

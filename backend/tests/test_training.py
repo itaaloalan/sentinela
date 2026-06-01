@@ -77,5 +77,5 @@ def test_run_training_failure_sets_error(monkeypatch, tmp_path):
     training.run_training(mid, epochs=1)
     with Session(database.engine) as s:
         rec = s.get(AIModel, mid)
-    assert rec.status == "erro"
+    assert rec.status.startswith("erro")  # status carrega o motivo
     assert rec.accuracy is None

@@ -208,6 +208,19 @@ select {
 .thumb img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; }
 .thumb button { position: absolute; top: 2px; right: 2px; width: auto; margin: 0; padding: 0 0.4rem; border-radius: 6px; border: none; background: rgba(15,23,42,0.7); color: var(--text); cursor: pointer; }
 .model-detail .cam-form input[type="number"] { flex: 0 0 5rem; }
+.status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.badge { padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+.badge-ok { background: #064e3b; color: #6ee7b7; }
+.badge-wait { background: #4d3a09; color: #fcd34d; }
+.badge-err { background: #4c0519; color: #fda4af; }
+.badge-new { background: var(--border); color: var(--muted); }
+.test-result { color: var(--accent); font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: 1rem; }
+.action { display: flex; flex-direction: column; gap: 0.3rem; max-width: 16rem; }
+.action button { width: auto; margin: 0; }
+.action .hint { font-size: 0.78rem; color: var(--muted); }
+button.primary { background: var(--accent); color: #04222a; font-weight: 700; border: none; }
+button.primary:disabled { opacity: 0.5; }
 
 /* eventos (timeline de alertas) */
 .event-list { display: flex; flex-direction: column; gap: 0.6rem; }

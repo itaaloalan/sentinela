@@ -19,6 +19,13 @@ import {
 import { CameraVideo } from "../components/CameraVideo";
 import { AsyncButton } from "../components/AsyncButton";
 
+function statusKind(status: string): string {
+  if (status === "pronto") return "ok";
+  if (status === "treinando") return "wait";
+  if (status.startsWith("erro")) return "err";
+  return "new";
+}
+
 export default function Training() {
   const [models, setModels] = useState<AIModel[]>([]);
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -54,6 +61,20 @@ export default function Training() {
 
   const selected = models.find((m) => m.id === selectedId) ?? null;
   const previewName = cameras.find((c) => c.id === selected?.camera_id)?.name;
+
+  // enquanto treina (job em background), atualiza sozinho até virar pronto/erro
+  const trainingStatus = selected?.status;
+  useEffect(() => {
+    if (trainingStatus !== "treinando") return;
+    const timer = setInterval(refresh, 3000);
+    return () => clearInterval(timer);
+  }, [trainingStatus, refresh]);
+
+  const totalFrames = selected
+    ? Object.values(selected.frames).reduce((a, b) => a + b, 0)
+    : 0;
+  const trained = selected?.status === "pronto";
+  const training = selected?.status === "treinando";
 
   function loadFrames(id: number) {
     return run(async () => setFramesByLabel(await listModelFrames(id)));
@@ -217,24 +238,59 @@ export default function Training() {
               <AsyncButton className="ghost" onClick={onSaveCrop}>Salvar crop</AsyncButton>
             </div>
 
-            <div className="cam-form">
-              <AsyncButton className="ghost" onClick={onTrain}>Treinar</AsyncButton>
-              <AsyncButton className="ghost" onClick={onTest}>Testar ao vivo</AsyncButton>
-              <AsyncButton className="ghost" onClick={onToggleActive}>
-                {selected.active ? "Desativar alerta" : "Ativar alerta"}
-              </AsyncButton>
-              <span>
-                status: {selected.status}
-                {selected.accuracy !== null ? ` · acc ${selected.accuracy}` : ""}
+            <div className="status-line">
+              <span className={`badge badge-${statusKind(selected.status)}`}>
+                {selected.status}
               </span>
+              {training && <span className="muted">treinando… (atualiza sozinho)</span>}
+              {selected.accuracy !== null && (
+                <span className="muted">acurácia {Math.round(selected.accuracy * 100)}%</span>
+              )}
               {testResult && (
                 <span className="test-result">
-                  → {testResult.label ?? "?"}
+                  resultado: {testResult.label ?? "?"}
                   {testResult.confidence !== null
                     ? ` (${Math.round(testResult.confidence * 100)}%)`
                     : ""}
                 </span>
               )}
+            </div>
+
+            <div className="actions">
+              <div className="action">
+                <AsyncButton
+                  className="primary"
+                  disabled={totalFrames === 0 || training}
+                  onClick={onTrain}
+                >
+                  1. Treinar
+                </AsyncButton>
+                <span className="hint">
+                  {totalFrames === 0
+                    ? "Capture frames das duas classes primeiro"
+                    : `Treina o classificador com os ${totalFrames} frames`}
+                </span>
+              </div>
+              <div className="action">
+                <AsyncButton className="ghost" disabled={!trained} onClick={onTest}>
+                  2. Testar ao vivo
+                </AsyncButton>
+                <span className="hint">
+                  {trained ? "Classifica um frame agora" : "Treine o modelo primeiro"}
+                </span>
+              </div>
+              <div className="action">
+                <AsyncButton className="ghost" disabled={!trained} onClick={onToggleActive}>
+                  {selected.active ? "Desativar alerta" : "3. Ativar alerta"}
+                </AsyncButton>
+                <span className="hint">
+                  {selected.active
+                    ? "Monitor ligado — avisa no celular quando abrir"
+                    : trained
+                      ? "Liga o monitor que dispara o alerta"
+                      : "Treine o modelo primeiro"}
+                </span>
+              </div>
             </div>
           </section>
         )}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Training from "./Training";
 
@@ -109,16 +109,43 @@ describe("Training", () => {
     expect(await screen.findByTestId("cam-video")).toBeInTheDocument();
     expect(screen.getByAltText("f1.jpg")).toBeInTheDocument(); // thumb da galeria
     expect(screen.getByRole("button", { name: "Desativar alerta" })).toBeInTheDocument();
-    expect(screen.getByText(/acc 0.9/)).toBeInTheDocument();
+    expect(screen.getByText(/acurácia 90%/)).toBeInTheDocument();
+    expect(screen.getByText(/Monitor ligado/)).toBeInTheDocument();
+    expect(screen.getByText(/Treina o classificador com os 3 frames/)).toBeInTheDocument();
   });
 
-  it("selects model 2: no preview, inactive", async () => {
+  it("trained + inactive model: alert can be activated, with hints", async () => {
+    const pronto = { ...M1, active: false };
+    api.listModels.mockResolvedValue([pronto]);
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    const ativar = await screen.findByRole("button", { name: "3. Ativar alerta" });
+    expect(ativar).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "2. Testar ao vivo" })).not.toBeDisabled();
+    expect(screen.getByText(/Liga o monitor que dispara o alerta/)).toBeInTheDocument();
+  });
+
+  it("shows the error reason in the status badge", async () => {
+    const erro = { ...M1, status: "erro: sem ultralytics" };
+    api.listModels.mockResolvedValue([erro]);
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · erro/));
+    expect(screen.getByText("erro: sem ultralytics")).toBeInTheDocument();
+  });
+
+  it("selects model 2: no preview, inactive, actions disabled until trained", async () => {
     const user = userEvent.setup();
     render(<Training />);
     await user.click(await screen.findByText(/vazio · novo/));
     await screen.findByRole("heading", { name: "vazio" });
     expect(screen.queryByTestId("cam-video")).toBeNull(); // câmera 99 não existe
-    expect(screen.getByRole("button", { name: "Ativar alerta" })).toBeInTheDocument();
+    // sem treino → testar e ativar desabilitados; sem frames → treinar desabilitado
+    expect(screen.getByRole("button", { name: "3. Ativar alerta" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "2. Testar ao vivo" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "1. Treinar" })).toBeDisabled();
+    expect(screen.getByText(/Capture frames das duas classes primeiro/)).toBeInTheDocument();
   });
 
   it("captures a frame", async () => {
@@ -154,7 +181,7 @@ describe("Training", () => {
     const user = userEvent.setup();
     render(<Training />);
     await user.click(await screen.findByText(/portao · pronto/));
-    await user.click(await screen.findByRole("button", { name: "Treinar" }));
+    await user.click(await screen.findByRole("button", { name: "1. Treinar" }));
     await waitFor(() => expect(api.trainModel).toHaveBeenCalledWith(1));
   });
 
@@ -162,7 +189,7 @@ describe("Training", () => {
     const user = userEvent.setup();
     render(<Training />);
     await user.click(await screen.findByText(/portao · pronto/));
-    await user.click(await screen.findByRole("button", { name: "Testar ao vivo" }));
+    await user.click(await screen.findByRole("button", { name: "2. Testar ao vivo" }));
     expect(await screen.findByText(/aberto \(87%\)/)).toBeInTheDocument();
   });
 
@@ -171,8 +198,8 @@ describe("Training", () => {
     const user = userEvent.setup();
     render(<Training />);
     await user.click(await screen.findByText(/portao · pronto/));
-    await user.click(await screen.findByRole("button", { name: "Testar ao vivo" }));
-    expect(await screen.findByText(/→ \?/)).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "2. Testar ao vivo" }));
+    expect(await screen.findByText(/resultado: \?/)).toBeInTheDocument();
   });
 
   it("toggles the alert active state", async () => {
@@ -181,6 +208,29 @@ describe("Training", () => {
     await user.click(await screen.findByText(/portao · pronto/));
     await user.click(await screen.findByRole("button", { name: "Desativar alerta" }));
     await waitFor(() => expect(api.activateModel).toHaveBeenCalledWith(1, false));
+  });
+
+  it("auto-refreshes while a model is training (polling)", async () => {
+    vi.useFakeTimers();
+    try {
+      const treinando = { ...M1, status: "treinando" };
+      api.listModels.mockResolvedValue([treinando]);
+      const { container } = render(<Training />);
+      await act(async () => {}); // flush load inicial
+      const chip = container.querySelector(".model-chip") as HTMLElement;
+      await act(async () => {
+        chip.click();
+      });
+      await act(async () => {}); // flush loadFrames
+      expect(screen.getByText(/treinando…/)).toBeInTheDocument();
+      const before = api.listModels.mock.calls.length;
+      await act(async () => {
+        vi.advanceTimersByTime(3000); // dispara o interval → refresh
+      });
+      expect(api.listModels.mock.calls.length).toBeGreaterThan(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("navigates back to the cameras grid", async () => {
