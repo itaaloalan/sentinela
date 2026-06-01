@@ -1,12 +1,7 @@
-"""Persistência (placeholder do skeleton).
+"""Stores em memória das peças ainda não migradas para o SQLite.
 
-TODO (Fase 2+): trocar por SQLite real (SQLModel/SQLAlchemy) com tabelas:
-  - users(id, username, password_hash)
-  - cameras(id, name, source, kind, ptz_enabled)
-  - models(id, camera_id, name, classes, crop, version, accuracy, active)
-  - events(id, model_id, camera_id, label, snapshot_path, created_at)
-
-Por enquanto, stores em memória para o skeleton rodar sem dependências de DB.
+`users` e `cameras` já vivem no SQLite (ver `database.py` / `db_models.py`).
+`ai_models` e `events` continuam em memória até a Fase 4/5.
 """
 from itertools import count
 
@@ -17,7 +12,6 @@ def next_id() -> int:
     return next(_id)
 
 
-# stores em memória (substituir por SQLite)
-cameras: dict[int, dict] = {}
+# stores em memória (migrar para SQLite na Fase 4/5)
 ai_models: dict[int, dict] = {}
 events: list[dict] = []

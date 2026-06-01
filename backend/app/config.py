@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     admin_pass: str = Field("changeme", validation_alias="SENTINELA_ADMIN_PASS")
     jwt_ttl_minutes: int = 60 * 12
 
+    # Persistência
+    database_url: str = Field(
+        "sqlite:///./data/sentinela.db", validation_alias="DATABASE_URL"
+    )
+
     # Streaming
     go2rtc_url: str = Field("http://localhost:1984", validation_alias="GO2RTC_URL")
 

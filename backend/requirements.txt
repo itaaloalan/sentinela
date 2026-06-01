@@ -1,10 +1,18 @@
-# Core (skeleton roda só com isto)
+# Core
 fastapi>=0.115
 uvicorn[standard]>=0.32
 pydantic-settings>=2.6
 PyJWT>=2.9
 httpx>=0.27
 python-multipart>=0.0.12
+sqlmodel>=0.0.22          # persistência (Fase 2): câmeras + usuários
+pwdlib[bcrypt]>=0.2.1     # hash de senha (Fase 2)
+
+# --- dev / testes (gate de 100% de cobertura) ---
+pytest>=8.3
+pytest-asyncio>=0.24
+pytest-cov>=6.0
+respx>=0.21               # mock das chamadas httpx (go2rtc / ntfy)
 
 # --- extras (descomentar quando implementar as fases) ---
 # onvif-zeep>=0.2.12        # PTZ via ONVIF (Fase 3)

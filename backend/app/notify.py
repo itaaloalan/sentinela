@@ -15,7 +15,8 @@ async def send_gate_open(snapshot_jpeg: bytes, event_id: int | None = None) -> N
 
     url = f"{settings.ntfy_server}/{settings.ntfy_topic}"
     headers = {
-        "Title": "Portão aberto!",
+        # Cabeçalhos HTTP só aceitam ASCII (latin-1); sem acento no título.
+        "Title": "Portao aberto!",
         "Priority": "high",
         "Tags": "rotating_light",
         "Filename": "portao.jpg",

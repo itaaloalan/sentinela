@@ -1,0 +1,14 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov=capture --cov=trainer --cov=monitor --cov-report=term-missing --cov-branch --cov-fail-under=100"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_lines = [
+    'if __name__ == .__main__.:',
+]

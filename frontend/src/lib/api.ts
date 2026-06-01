@@ -33,16 +33,32 @@ export async function login(username: string, password: string) {
   auth.token = data.access_token;
 }
 
-export interface Camera {
-  id: number;
+export interface CameraIn {
   name: string;
   source: string;
   kind: string;
   ptz_enabled: boolean;
 }
 
+export interface Camera extends CameraIn {
+  id: number;
+}
+
 export async function listCameras(): Promise<Camera[]> {
   return (await req("/api/cameras")).json();
+}
+
+export async function createCamera(cam: CameraIn): Promise<Camera> {
+  const res = await req("/api/cameras", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cam),
+  });
+  return res.json();
+}
+
+export async function deleteCamera(id: number): Promise<void> {
+  await req(`/api/cameras/${id}`, { method: "DELETE" });
 }
 
 export function snapshotUrl(id: number) {
