@@ -61,6 +61,25 @@ export async function deleteCamera(id: number): Promise<void> {
   await req(`/api/cameras/${id}`, { method: "DELETE" });
 }
 
+export interface DiscoveredCamera {
+  ip: string;
+  mac: string | null;
+  vendor: string | null;
+  ports: number[];
+  kind: string;
+  suggested_source: string;
+  label: string;
+}
+
+export interface DiscoverResult {
+  subnet: string;
+  candidates: DiscoveredCamera[];
+}
+
+export async function discoverCameras(): Promise<DiscoverResult> {
+  return (await req("/api/cameras/discover")).json();
+}
+
 export function snapshotUrl(id: number) {
   return `/api/cameras/${id}/snapshot`;
 }

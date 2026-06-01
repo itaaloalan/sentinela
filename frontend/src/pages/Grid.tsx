@@ -4,9 +4,11 @@ import {
   auth,
   createCamera,
   deleteCamera,
+  discoverCameras,
   listCameras,
   snapshotUrl,
   type Camera,
+  type DiscoveredCamera,
 } from "../lib/api";
 
 const KINDS = ["rtsp", "dvrip", "onvif"];
@@ -19,6 +21,8 @@ export default function Grid() {
   const [kind, setKind] = useState("rtsp");
   const [ptz, setPtz] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [found, setFound] = useState<DiscoveredCamera[]>([]);
   const nav = useNavigate();
 
   const refresh = useCallback(() => {
@@ -64,6 +68,26 @@ export default function Grid() {
     }
   }
 
+  async function onDiscover() {
+    setDiscovering(true);
+    setError("");
+    try {
+      const result = await discoverCameras();
+      setFound(result.candidates);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao descobrir");
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  function useCandidate(cam: DiscoveredCamera) {
+    const octets = cam.ip.split(".");
+    setName(octets[octets.length - 1]);
+    setSource(cam.suggested_source);
+    setKind(cam.kind);
+  }
+
   return (
     <>
       <header className="app-header">
@@ -102,7 +126,27 @@ export default function Grid() {
             PTZ
           </label>
           <button disabled={busy}>{busy ? "Salvando…" : "Cadastrar câmera"}</button>
+          <button type="button" className="ghost" disabled={discovering} onClick={onDiscover}>
+            {discovering ? "Procurando…" : "Descobrir"}
+          </button>
         </form>
+
+        {found.length > 0 && (
+          <div className="discover-list">
+            {found.map((cam) => (
+              <div className="discover-item" key={cam.ip}>
+                <div className="discover-info">
+                  <strong>{cam.label}</strong> — {cam.ip}
+                  {cam.vendor && <span className="muted"> · {cam.vendor}</span>}
+                  <span className="muted"> · portas {cam.ports.join(", ")}</span>
+                </div>
+                <button type="button" className="ghost" onClick={() => useCandidate(cam)}>
+                  Usar
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {cameras.length === 0 && !error && (
           <div className="empty">Nenhuma câmera cadastrada ainda.</div>

@@ -3,6 +3,7 @@ import {
   auth,
   createCamera,
   deleteCamera,
+  discoverCameras,
   listCameras,
   login,
   snapshotUrl,
@@ -115,6 +116,14 @@ describe("authenticated requests", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/cameras/9");
     expect(init.method).toBe("DELETE");
+  });
+
+  it("discoverCameras fetches the discover endpoint", async () => {
+    auth.token = "tok";
+    const payload = { subnet: "192.168.0.0/24", candidates: [] };
+    fetchMock.mockResolvedValue(mockResponse({ json: payload }));
+    expect(await discoverCameras()).toEqual(payload);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/cameras/discover");
   });
 });
 

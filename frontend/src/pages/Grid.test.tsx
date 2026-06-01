@@ -11,6 +11,7 @@ const api = {
   listCameras: vi.fn(),
   createCamera: vi.fn(),
   deleteCamera: vi.fn(),
+  discoverCameras: vi.fn(),
   snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot`,
 };
 vi.mock("../lib/api", () => ({
@@ -18,8 +19,20 @@ vi.mock("../lib/api", () => ({
   listCameras: (...a: unknown[]) => api.listCameras(...a),
   createCamera: (...a: unknown[]) => api.createCamera(...a),
   deleteCamera: (...a: unknown[]) => api.deleteCamera(...a),
+  discoverCameras: (...a: unknown[]) => api.discoverCameras(...a),
   snapshotUrl: (id: number) => api.snapshotUrl(id),
 }));
+
+const FOUND = {
+  subnet: "192.168.0.0/24",
+  candidates: [
+    {
+      ip: "192.168.0.12", mac: "14:5d:34:ec:04:f9", vendor: "Bilian",
+      ports: [554], kind: "rtsp",
+      suggested_source: "rtsp://admin:SENHA@192.168.0.12:554/onvif1", label: "RTSP",
+    },
+  ],
+};
 
 const ONE = [{ id: 1, name: "portao", source: "rtsp://x", kind: "rtsp", ptz_enabled: false }];
 
@@ -29,6 +42,7 @@ beforeEach(() => {
   api.listCameras.mockReset().mockResolvedValue([]);
   api.createCamera.mockReset().mockResolvedValue(ONE[0]);
   api.deleteCamera.mockReset().mockResolvedValue(undefined);
+  api.discoverCameras.mockReset().mockResolvedValue(FOUND);
 });
 
 describe("Grid", () => {
@@ -148,6 +162,48 @@ describe("Grid", () => {
     const img = (await screen.findByAltText("portao")) as HTMLImageElement;
     fireEvent.error(img);
     expect(img.style.display).toBe("none");
+  });
+
+  it("discovers cameras and prefills the form when clicking Usar", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await user.click(screen.getByRole("button", { name: "Descobrir" }));
+    await user.click(await screen.findByRole("button", { name: "Usar" }));
+    expect((screen.getByPlaceholderText(/nome/) as HTMLInputElement).value).toBe("12");
+    expect((screen.getByPlaceholderText(/source/) as HTMLInputElement).value).toBe(
+      "rtsp://admin:SENHA@192.168.0.12:554/onvif1",
+    );
+    expect((screen.getByLabelText("tipo") as HTMLSelectElement).value).toBe("rtsp");
+  });
+
+  it("shows progress text while discovering", async () => {
+    let resolve!: (v: unknown) => void;
+    api.discoverCameras.mockReturnValue(new Promise((r) => (resolve = r)));
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await user.click(screen.getByRole("button", { name: "Descobrir" }));
+    expect(await screen.findByRole("button", { name: "Procurando…" })).toBeDisabled();
+    resolve(FOUND);
+  });
+
+  it("shows an error when discovery fails", async () => {
+    api.discoverCameras.mockRejectedValue(new Error("scan falhou"));
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await user.click(screen.getByRole("button", { name: "Descobrir" }));
+    expect(await screen.findByText("scan falhou")).toBeInTheDocument();
+  });
+
+  it("shows a generic error when discovery rejects with a non-Error", async () => {
+    api.discoverCameras.mockRejectedValue("x");
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await user.click(screen.getByRole("button", { name: "Descobrir" }));
+    expect(await screen.findByText("Erro ao descobrir")).toBeInTheDocument();
   });
 
   it("logs out and navigates to /login", async () => {

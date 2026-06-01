@@ -1,6 +1,7 @@
 import httpx
 import respx
 
+from app import cameras as cameras_module
 from app.config import settings
 
 STREAMS_URL = f"{settings.go2rtc_url}/api/streams"
@@ -94,3 +95,28 @@ def test_snapshot_go2rtc_unavailable_returns_502(client, auth_headers):
         router.get(FRAME_URL).mock(side_effect=httpx.ConnectError("recusado"))
         resp = client.get(f"/api/cameras/{cid}/snapshot", headers=auth_headers)
     assert resp.status_code == 502
+
+
+def test_discover_requires_auth(client):
+    assert client.get("/api/cameras/discover").status_code == 401
+
+
+def test_discover_returns_candidates(client, auth_headers, monkeypatch):
+    fake = {
+        "subnet": "192.168.0.0/24",
+        "candidates": [
+            {
+                "ip": "192.168.0.12", "mac": None, "vendor": None, "ports": [554],
+                "kind": "rtsp", "suggested_source": "rtsp://admin:SENHA@192.168.0.12:554/onvif1",
+                "label": "RTSP",
+            }
+        ],
+    }
+
+    async def fake_discover():
+        return fake
+
+    monkeypatch.setattr(cameras_module.discovery, "discover", fake_discover)
+    resp = client.get("/api/cameras/discover", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == fake

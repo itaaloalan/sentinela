@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from . import discovery
 from .auth import current_user
 from .config import settings
 from .database import get_session
@@ -28,6 +29,12 @@ class CameraIn(BaseModel):
 
 class CameraOut(CameraIn):
     id: int
+
+
+@router.get("/discover")
+async def discover_cameras(_: str = Depends(current_user)):
+    """Varre a LAN e sugere câmeras para cadastro (ver app/discovery.py)."""
+    return await discovery.discover()
 
 
 @router.get("", response_model=list[CameraOut])
