@@ -77,6 +77,7 @@ def test_login_returns_token():
 @respx.mock
 def test_cycle_fires_event(monkeypatch):
     monkeypatch.setattr(monitor, "DEBOUNCE", 0)  # dispara já na 1ª leitura "aberto"
+    monkeypatch.setattr(monitor, "_trained", lambda mid: True)
     monkeypatch.setattr(monitor, "classify", lambda w, j, c: ("aberto", 0.95))
     respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
         return_value=httpx.Response(200, json=[
@@ -101,6 +102,7 @@ def test_cycle_fires_event(monkeypatch):
 
 @respx.mock
 def test_cycle_skips_low_confidence(monkeypatch):
+    monkeypatch.setattr(monitor, "_trained", lambda mid: True)
     monkeypatch.setattr(monitor, "classify", lambda w, j, c: ("aberto", 0.1))  # < threshold
     respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
         return_value=httpx.Response(200, json=[{"id": 1, "camera_id": 1, "active": True, "crop": None}])
@@ -123,6 +125,7 @@ def test_cycle_skips_low_confidence(monkeypatch):
 def test_cycle_no_fire_before_debounce(monkeypatch):
     # alerta com confiança ok, mas debounce alto → 1ª leitura não dispara
     monkeypatch.setattr(monitor, "DEBOUNCE", 999)
+    monkeypatch.setattr(monitor, "_trained", lambda mid: True)
     monkeypatch.setattr(monitor, "classify", lambda w, j, c: ("aberto", 0.95))
     respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
         return_value=httpx.Response(200, json=[{"id": 1, "camera_id": 1, "active": True, "crop": None}])
@@ -147,6 +150,7 @@ def test_cycle_handles_model_error(monkeypatch, capsys):
     def _boom(*a):
         raise RuntimeError("sem ultralytics")
 
+    monkeypatch.setattr(monitor, "_trained", lambda mid: True)
     monkeypatch.setattr(monitor, "classify", _boom)
     respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
         return_value=httpx.Response(200, json=[{"id": 1, "camera_id": 1, "active": True, "crop": None}])
@@ -163,9 +167,28 @@ def test_cycle_handles_model_error(monkeypatch, capsys):
 
 
 @respx.mock
+def test_cycle_skips_untrained_model(monkeypatch, capsys):
+    # modelo ativo mas sem best.pt ainda → pula sem poluir o log e sem buscar frame
+    respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "camera_id": 1, "active": True, "crop": None}])
+    )
+    respx.get(f"{monitor.BACKEND_URL}/api/cameras").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "name": "portao"}])
+    )
+    frame = respx.get(f"{monitor.GO2RTC_URL}/api/frame.jpeg").mock(
+        return_value=httpx.Response(200, content=b"jpeg")
+    )
+    with httpx.Client() as client:
+        monitor.cycle(client, "tok", {})  # _trained real → False (sem arquivo)
+    assert not frame.called
+    assert capsys.readouterr().out == ""
+
+
+@respx.mock
 def test_cycle_empty_frame_reports_clear_error(monkeypatch, capsys):
     # go2rtc devolve 200 com corpo vazio quando não alcança a câmera (ex.: VPN
     # sequestrando a rota). Deve virar erro legível, não "cannot identify image".
+    monkeypatch.setattr(monitor, "_trained", lambda mid: True)
     respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
         return_value=httpx.Response(200, json=[{"id": 1, "camera_id": 1, "active": True, "crop": None}])
     )

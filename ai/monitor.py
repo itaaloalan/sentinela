@@ -51,6 +51,10 @@ def weights_path(model_id: int) -> str:
     return f"{AI_DATA_DIR}/{model_id}/run/weights/best.pt"
 
 
+def _trained(model_id: int) -> bool:
+    return os.path.exists(weights_path(model_id))
+
+
 def classify(weights: str, jpeg: bytes, crop: dict | None) -> tuple[str, float]:
     from PIL import Image  # lazy
 
@@ -87,6 +91,8 @@ def _process_model(client, token, model, name_by_id, debouncers) -> None:
     name = name_by_id.get(model["camera_id"])
     if name is None:
         return
+    if not _trained(model["id"]):
+        return  # ativo mas ainda sem treino concluído — ignora sem poluir o log
     jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg?src={name}").content
     if not jpeg:
         raise RuntimeError(
