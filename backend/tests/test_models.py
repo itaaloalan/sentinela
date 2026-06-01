@@ -3,6 +3,7 @@ import respx
 from sqlmodel import Session
 
 from app import database
+from app import models as models_module
 from app.config import settings
 from app.db_models import Camera
 
@@ -133,11 +134,23 @@ def test_set_crop(client, auth_headers):
     assert resp.json()["crop"] == {"x1": 1, "y1": 2, "x2": 3, "y2": 4}
 
 
-def test_train_status_test(client, auth_headers):
+def test_train_schedules_job(client, auth_headers, monkeypatch):
     cid = _make_camera()
     mid = _create_model(client, auth_headers, cid)["id"]
-    assert client.post(f"/api/models/{mid}/train", headers=auth_headers).json()["status"] == "treinando"
+    scheduled = {}
+    monkeypatch.setattr(
+        models_module.training, "run_training", lambda m: scheduled.update(id=m)
+    )
+    resp = client.post(f"/api/models/{mid}/train", headers=auth_headers)
+    assert resp.json()["status"] == "treinando"
+    # BackgroundTasks roda após a resposta no TestClient
+    assert scheduled["id"] == mid
     assert client.get(f"/api/models/{mid}/status", headers=auth_headers).json()["status"] == "treinando"
+
+
+def test_test_endpoint_stub(client, auth_headers):
+    cid = _make_camera()
+    mid = _create_model(client, auth_headers, cid)["id"]
     assert client.post(f"/api/models/{mid}/test", headers=auth_headers).json()["label"] is None
 
 

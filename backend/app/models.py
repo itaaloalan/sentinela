@@ -7,12 +7,12 @@ chegam no Estágio 2 (ai/trainer.py / monitor.py); aqui ficam como stub.
 import json
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from . import frames
+from . import frames, training
 from .auth import current_user, media_user
 from .database import get_session
 from .db_models import AIModel, Camera
@@ -161,14 +161,16 @@ def set_crop(
 @router.post("/{mid}/train")
 def train(
     mid: int,
+    background: BackgroundTasks,
     _: str = Depends(current_user),
     session: Session = Depends(get_session),
 ):
     rec = _get(session, mid)
-    rec.status = "treinando"  # TODO (Estágio 2): enfileirar ai/trainer.py
+    rec.status = "treinando"
     session.add(rec)
     session.commit()
-    return {"ok": True, "status": rec.status}
+    background.add_task(training.run_training, mid)
+    return {"ok": True, "status": "treinando"}
 
 
 @router.get("/{mid}/status")

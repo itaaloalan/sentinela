@@ -5,6 +5,7 @@ Os metadados do modelo ficam no SQLite (ver db_models.AIModel).
 """
 import re
 import time
+import uuid
 from pathlib import Path
 
 from .config import settings
@@ -24,7 +25,8 @@ def model_dir(model_id: int, label: str) -> Path:
 def save_frame(model_id: int, label: str, jpeg: bytes) -> str:
     out = model_dir(model_id, label)
     out.mkdir(parents=True, exist_ok=True)
-    filename = f"{int(time.time() * 1000)}.jpg"
+    # timestamp p/ ordenação + sufixo único p/ não colidir em capturas rápidas
+    filename = f"{int(time.time() * 1000)}-{uuid.uuid4().hex[:8]}.jpg"
     (out / filename).write_bytes(jpeg)
     return filename
 
