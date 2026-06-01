@@ -214,3 +214,22 @@ export interface TestResult {
 export async function testModel(id: number): Promise<TestResult> {
   return (await req(`/api/models/${id}/test`, { method: "POST" })).json();
 }
+
+// ---- Eventos (alertas do monitor) ----
+
+export interface AlertEvent {
+  id: number;
+  model_id: number;
+  camera_id: number;
+  label: string;
+  snapshot: string;
+  created_at: string;
+}
+
+export async function listEvents(): Promise<AlertEvent[]> {
+  return (await req("/api/events")).json();
+}
+
+export function eventSnapshotUrl(id: number) {
+  return `/api/events/${id}/snapshot?token=${encodeURIComponent(auth.token ?? "")}`;
+}

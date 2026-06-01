@@ -8,6 +8,8 @@ import {
   deleteCamera,
   deleteModelFrame,
   discoverCameras,
+  eventSnapshotUrl,
+  listEvents,
   listCameras,
   listModelFrames,
   listModels,
@@ -269,5 +271,21 @@ describe("AI model API", () => {
     fetchMock.mockResolvedValue(mockResponse({ json: { label: "aberto", confidence: 0.9 } }));
     expect(await testModel(1)).toEqual({ label: "aberto", confidence: 0.9 });
     expect(fetchMock.mock.calls[0][0]).toBe("/api/models/1/test");
+  });
+
+  it("listEvents GETs /api/events", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: [{ id: 1 }] }));
+    expect(await listEvents()).toEqual([{ id: 1 }]);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/events");
+  });
+
+  it("eventSnapshotUrl includes the token", () => {
+    auth.token = "t";
+    expect(eventSnapshotUrl(5)).toBe("/api/events/5/snapshot?token=t");
+  });
+
+  it("eventSnapshotUrl uses empty token when logged out", () => {
+    expect(eventSnapshotUrl(5)).toBe("/api/events/5/snapshot?token=");
   });
 });

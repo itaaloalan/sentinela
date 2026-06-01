@@ -31,6 +31,8 @@ vi.mock("./lib/api", () => ({
   testModel: vi.fn(),
   activateModel: vi.fn(),
   modelFrameUrl: () => "",
+  listEvents: vi.fn().mockResolvedValue([]),
+  eventSnapshotUrl: () => "",
 }));
 
 function renderAt(path: string) {
@@ -68,6 +70,14 @@ describe("App routing", () => {
     renderAt("/treinos");
     expect(
       await screen.findByRole("heading", { name: /Treino da IA/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the events page on /eventos when logged in", async () => {
+    state.loggedIn = true;
+    renderAt("/eventos");
+    expect(
+      await screen.findByRole("heading", { name: /Eventos/ }),
     ).toBeInTheDocument();
   });
 });
