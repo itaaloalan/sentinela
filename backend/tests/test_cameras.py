@@ -157,6 +157,48 @@ def test_snapshot_go2rtc_unavailable_returns_502(client, auth_headers):
     assert resp.status_code == 502
 
 
+def test_ptz_ok(client, auth_headers, monkeypatch):
+    cid = _create(client, auth_headers).json()["id"]
+    calls = {}
+    monkeypatch.setattr(
+        cameras_module.ptz, "move", lambda cam, p, t, z: calls.update(v=(p, t, z))
+    )
+    resp = client.post(
+        f"/api/cameras/{cid}/ptz", json={"pan": 0.5}, headers=auth_headers
+    )
+    assert resp.status_code == 200
+    assert calls["v"] == (0.5, 0.0, 0.0)
+
+
+def test_ptz_camera_not_found(client, auth_headers):
+    assert (
+        client.post("/api/cameras/9999/ptz", json={}, headers=auth_headers).status_code
+        == 404
+    )
+
+
+def test_ptz_onvif_not_installed_returns_501(client, auth_headers, monkeypatch):
+    cid = _create(client, auth_headers).json()["id"]
+
+    def _boom(*a):
+        raise RuntimeError("onvif-zeep não instalado")
+
+    monkeypatch.setattr(cameras_module.ptz, "move", _boom)
+    resp = client.post(f"/api/cameras/{cid}/ptz", json={}, headers=auth_headers)
+    assert resp.status_code == 501
+
+
+def test_ptz_camera_error_returns_502(client, auth_headers, monkeypatch):
+    cid = _create(client, auth_headers).json()["id"]
+
+    def _boom(*a):
+        raise ValueError("timeout ONVIF")
+
+    monkeypatch.setattr(cameras_module.ptz, "move", _boom)
+    resp = client.post(f"/api/cameras/{cid}/ptz", json={}, headers=auth_headers)
+    assert resp.status_code == 502
+
+
 def test_discover_requires_auth(client):
     assert client.get("/api/cameras/discover").status_code == 401
 

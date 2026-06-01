@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # Streaming
     go2rtc_url: str = Field("http://localhost:1984", validation_alias="GO2RTC_URL")
+    onvif_port: int = Field(5000, validation_alias="ONVIF_PORT")  # PTZ (Yoosee=5000)
 
     # Notificação (ntfy)
     ntfy_server: str = Field("https://ntfy.sh", validation_alias="NTFY_SERVER")

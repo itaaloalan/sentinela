@@ -23,6 +23,7 @@ vi.mock("../lib/api", () => ({
   discoverCameras: (...a: unknown[]) => api.discoverCameras(...a),
   streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
   snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot?token=`,
+  ptzMove: vi.fn(),
 }));
 
 const FOUND = {

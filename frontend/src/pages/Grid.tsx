@@ -213,7 +213,7 @@ export default function Grid() {
           {cameras.map((cam) => (
             <div className="cam-card" key={cam.id}>
               <div className="video">
-                <CameraVideo id={cam.id} name={cam.name} />
+                <CameraVideo id={cam.id} name={cam.name} ptz={cam.ptz_enabled} />
               </div>
               <div className="label">
                 {cam.name}

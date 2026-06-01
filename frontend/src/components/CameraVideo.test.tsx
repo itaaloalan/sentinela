@@ -94,4 +94,35 @@ describe("CameraVideo", () => {
     await user.click(screen.getByRole("button", { name: "Tela cheia" }));
     expect(exit).toHaveBeenCalledOnce();
   });
+
+  it("no PTZ pad when ptz is false", () => {
+    render(<CameraVideo id={1} name="portao" />);
+    expect(screen.queryByRole("button", { name: "Cima" })).toBeNull();
+  });
+
+  it("sends ONVIF PTZ on press and stop on release", () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+      text: async () => "",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { getByRole } = render(<CameraVideo id={5} name="portao" ptz />);
+    const left = getByRole("button", { name: "Esquerda" });
+    fireEvent.pointerDown(left);
+    fireEvent.pointerUp(left);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/cameras/5/ptz");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      pan: -0.5,
+      tilt: 0,
+      zoom: 0,
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      pan: 0,
+      tilt: 0,
+      zoom: 0,
+    });
+    vi.unstubAllGlobals();
+  });
 });

@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { snapshotUrl, streamWsUrl } from "../lib/api";
+import { ptzMove, snapshotUrl, streamWsUrl } from "../lib/api";
 
 // Vídeo ao vivo via WebRTC (web component <video-stream> do go2rtc) com barra
-// de controles própria: áudio (mudo/som), foto (snapshot) e tela cheia.
-// src/mode/background são propriedades do componente, setadas via ref.
-export function CameraVideo({ id, name }: { id: number; name: string }) {
+// de controles própria: áudio, zoom/pan digital, foto, tela cheia e — quando
+// `ptz` — um D-pad de PTZ mecânico (ONVIF) com pressionar-e-segurar.
+export function CameraVideo({
+  id,
+  name,
+  ptz = false,
+}: {
+  id: number;
+  name: string;
+  ptz?: boolean;
+}) {
   const ref = useRef<HTMLElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
@@ -62,6 +70,14 @@ export function CameraVideo({ id, name }: { id: number; name: string }) {
     drag.current = null;
   }
 
+  // PTZ mecânico: pressiona pra mover, solta pra parar.
+  function ptzHold(pan: number, tilt: number, zoom: number) {
+    return {
+      onPointerDown: () => ptzMove(id, pan, tilt, zoom),
+      onPointerUp: () => ptzMove(id, 0, 0, 0),
+    };
+  }
+
   return (
     <div className="cam-video-wrap" ref={wrapRef}>
       <video-stream
@@ -93,6 +109,18 @@ export function CameraVideo({ id, name }: { id: number; name: string }) {
           ⛶
         </button>
       </div>
+      {ptz && (
+        <div className="ptz-pad">
+          <button type="button" aria-label="Cima" {...ptzHold(0, 0.5, 0)}>↑</button>
+          <div className="ptz-mid">
+            <button type="button" aria-label="Esquerda" {...ptzHold(-0.5, 0, 0)}>←</button>
+            <button type="button" aria-label="Aproximar lente" {...ptzHold(0, 0, 0.5)}>🔍+</button>
+            <button type="button" aria-label="Afastar lente" {...ptzHold(0, 0, -0.5)}>🔍−</button>
+            <button type="button" aria-label="Direita" {...ptzHold(0.5, 0, 0)}>→</button>
+          </div>
+          <button type="button" aria-label="Baixo" {...ptzHold(0, -0.5, 0)}>↓</button>
+        </div>
+      )}
     </div>
   );
 }

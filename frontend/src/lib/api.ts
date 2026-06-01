@@ -70,6 +70,20 @@ export async function deleteCamera(id: number): Promise<void> {
   await req(`/api/cameras/${id}`, { method: "DELETE" });
 }
 
+// PTZ mecânico (ONVIF) — velocidades em [-1,1]; tudo 0 = parar.
+export async function ptzMove(
+  id: number,
+  pan: number,
+  tilt: number,
+  zoom: number,
+): Promise<void> {
+  await req(`/api/cameras/${id}/ptz`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pan, tilt, zoom }),
+  });
+}
+
 export interface DiscoveredCamera {
   ip: string;
   mac: string | null;

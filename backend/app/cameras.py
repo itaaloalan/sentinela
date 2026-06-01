@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from . import discovery
+from . import discovery, ptz
 from .auth import current_user, media_user
 from .config import settings
 from .database import get_session
@@ -29,6 +29,12 @@ class CameraIn(BaseModel):
 
 class CameraOut(CameraIn):
     id: int
+
+
+class PtzIn(BaseModel):
+    pan: float = 0.0
+    tilt: float = 0.0
+    zoom: float = 0.0
 
 
 @router.get("/discover")
@@ -110,6 +116,24 @@ def _require_camera(session: Session, cid: int) -> Camera:
     if cam is None:
         raise HTTPException(404, "Câmera não encontrada")
     return cam
+
+
+@router.post("/{cid}/ptz")
+def ptz_move(
+    cid: int,
+    cmd: PtzIn,
+    _: str = Depends(current_user),
+    session: Session = Depends(get_session),
+):
+    """Move a câmera via ONVIF (pan/tilt/zoom em [-1,1]; tudo 0 = parar)."""
+    cam = _require_camera(session, cid)
+    try:
+        ptz.move(cam, cmd.pan, cmd.tilt, cmd.zoom)
+    except RuntimeError as e:
+        raise HTTPException(501, str(e))  # onvif-zeep não instalado
+    except Exception as e:  # erro ONVIF da câmera
+        raise HTTPException(502, f"PTZ falhou: {e}")
+    return {"ok": True}
 
 
 @router.get("/{cid}/snapshot")
