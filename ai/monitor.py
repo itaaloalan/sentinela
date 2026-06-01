@@ -88,6 +88,11 @@ def _process_model(client, token, model, name_by_id, debouncers) -> None:
     if name is None:
         return
     jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg?src={name}").content
+    if not jpeg:
+        raise RuntimeError(
+            f"go2rtc não entregou frame de '{name}' — câmera offline/inacessível "
+            "(VPN sequestrando a rota da LAN?)"
+        )
     label, conf = classify(weights_path(model["id"]), jpeg, model["crop"])
     if conf < THRESHOLD:
         return
@@ -128,7 +133,11 @@ def run():
 if __name__ == "__main__":
     # auto-bootstrap: se chamado com outro Python (ex.: runner usando o python do
     # sistema), re-executa na venv do ai/ que tem as dependências (httpx, etc.).
-    _venv_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
-    if os.path.exists(_venv_py) and os.path.realpath(sys.executable) != os.path.realpath(_venv_py):
+    # NB: o python da venv costuma ser symlink p/ o do sistema, então comparar o
+    # realpath do executável não distingue um do outro — sys.prefix sim (aponta
+    # p/ a venv ativa quando rodando nela, p/ /usr quando no python do sistema).
+    _venv = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv")
+    _venv_py = os.path.join(_venv, "bin", "python")
+    if os.path.exists(_venv_py) and os.path.realpath(sys.prefix) != os.path.realpath(_venv):
         os.execv(_venv_py, [_venv_py, *sys.argv])
     run()

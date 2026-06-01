@@ -163,6 +163,26 @@ def test_cycle_handles_model_error(monkeypatch, capsys):
 
 
 @respx.mock
+def test_cycle_empty_frame_reports_clear_error(monkeypatch, capsys):
+    # go2rtc devolve 200 com corpo vazio quando não alcança a câmera (ex.: VPN
+    # sequestrando a rota). Deve virar erro legível, não "cannot identify image".
+    respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "camera_id": 1, "active": True, "crop": None}])
+    )
+    respx.get(f"{monitor.BACKEND_URL}/api/cameras").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "name": "portao"}])
+    )
+    respx.get(f"{monitor.GO2RTC_URL}/api/frame.jpeg").mock(
+        return_value=httpx.Response(200, content=b"")
+    )
+    with httpx.Client() as client:
+        monitor.cycle(client, "tok", {})  # não levanta
+    out = capsys.readouterr().out
+    assert "erro no modelo 1" in out
+    assert "offline/inacessível" in out
+
+
+@respx.mock
 def test_post_event():
     route = respx.post(f"{monitor.BACKEND_URL}/api/events").mock(
         return_value=httpx.Response(201, json={"id": 9})
