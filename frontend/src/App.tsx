@@ -7,6 +7,7 @@ import Events from "./pages/Events";
 import Notifications from "./pages/Notifications";
 import Health from "./pages/Health";
 import Summary from "./pages/Summary";
+import Vigilante from "./pages/Vigilante";
 import { SystemStatus } from "./components/SystemStatus";
 import { AccessShare } from "./components/AccessShare";
 
@@ -70,6 +71,14 @@ export default function App() {
         element={
           <Protected>
             <Summary />
+          </Protected>
+        }
+      />
+      <Route
+        path="/vigilante"
+        element={
+          <Protected>
+            <Vigilante />
           </Protected>
         }
       />

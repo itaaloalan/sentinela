@@ -14,6 +14,10 @@ import {
   getAccessInfo,
   getDaySummary,
   getHealth,
+  getVigilanteConfig,
+  listObservations,
+  observationSnapshotUrl,
+  setVigilante,
   getNotifyConfig,
   getSystemStatus,
   sendTestNotification,
@@ -395,6 +399,36 @@ describe("AI model API", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/summary/ask");
     expect(JSON.parse(init.body)).toEqual({ question: "quando?" });
+  });
+
+  it("listObservations GETs /api/observations", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: [{ id: 1 }] }));
+    expect(await listObservations()).toEqual([{ id: 1 }]);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/observations");
+  });
+
+  it("getVigilanteConfig GETs the config", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { enabled: true } }));
+    expect(await getVigilanteConfig()).toEqual({ enabled: true });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/observations/config");
+  });
+
+  it("setVigilante PUTs the enabled flag as JSON", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { enabled: false } }));
+    expect(await setVigilante(false)).toEqual({ enabled: false });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/observations/config");
+    expect(JSON.parse(init.body)).toEqual({ enabled: false });
+  });
+
+  it("observationSnapshotUrl embeds the token (and empty when logged out)", () => {
+    auth.token = "tok";
+    expect(observationSnapshotUrl(7)).toBe("/api/observations/7/snapshot?token=tok");
+    auth.token = null;
+    expect(observationSnapshotUrl(7)).toBe("/api/observations/7/snapshot?token=");
   });
 
   it("getNotifyConfig GETs /api/notify/config", async () => {

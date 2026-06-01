@@ -335,6 +335,15 @@ describe("Grid", () => {
     expect(navigate).toHaveBeenCalledWith("/resumo");
   });
 
+  it("navigates to the vigilante page", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await openMenu(user);
+    await user.click(screen.getByRole("button", { name: "👁 Vigilante" }));
+    expect(navigate).toHaveBeenCalledWith("/vigilante");
+  });
+
   it("navigates to the health page", async () => {
     const user = userEvent.setup();
     render(<Grid />);

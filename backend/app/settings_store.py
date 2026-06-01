@@ -48,6 +48,18 @@ def set_discord_webhook(value: str) -> None:
     _set(_DISCORD_WEBHOOK, value)
 
 
+_VIGILANTE = "vigilante_enabled"
+
+
+def vigilante_enabled() -> bool:
+    """Modo Vigilante ligado? (descrições contínuas dos frames)."""
+    return _get(_VIGILANTE, "0") == "1"
+
+
+def set_vigilante(on: bool) -> None:
+    _set(_VIGILANTE, "1" if on else "0")
+
+
 _AI_HEARTBEAT = "ai_heartbeat"
 
 

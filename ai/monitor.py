@@ -68,6 +68,70 @@ def classify(weights: str, jpeg: bytes, crop: dict | None) -> tuple[str, float]:
     return result.names[result.probs.top1], float(result.probs.top1conf)
 
 
+_COCO_PT = {
+    "person": "pessoa", "car": "carro", "motorcycle": "moto", "bicycle": "bicicleta",
+    "bus": "ônibus", "truck": "caminhão", "dog": "cachorro", "cat": "gato",
+    "bird": "pássaro", "backpack": "mochila", "umbrella": "guarda-chuva",
+}
+
+
+def describe(jpeg: bytes, crop: dict | None) -> tuple[str, list[str]]:
+    """Descreve o frame por detecção de objetos (YOLO-det/COCO).
+
+    Retorna (texto em PT, lista de classes detectadas). Sem objetos relevantes
+    → texto vazio e lista vazia (o ciclo não registra observação). É o ponto de
+    troca pra plugar um VLM (legenda rica) no futuro.
+    """
+    from PIL import Image  # lazy
+
+    img = Image.open(io.BytesIO(jpeg))
+    if crop is not None:
+        img = img.crop((crop["x1"], crop["y1"], crop["x2"], crop["y2"]))
+
+    from ultralytics import YOLO  # lazy/pesado
+
+    result = YOLO("yolo11n.pt")(img)[0]
+    names = result.names
+    classes = [names[int(c)] for c in result.boxes.cls]
+    if not classes:
+        return "", []
+    counts: dict[str, int] = {}
+    for c in classes:
+        counts[c] = counts.get(c, 0) + 1
+    partes = [f"{n} {_COCO_PT.get(c, c)}" + ("s" if n > 1 else "") for c, n in counts.items()]
+    return "Detectado: " + ", ".join(partes) + ".", classes
+
+
+def post_observation(client, token: str, camera_id: int, description: str, objects: list[str], jpeg: bytes):
+    client.post(
+        f"{BACKEND_URL}/api/observations",
+        data={"camera_id": camera_id, "description": description, "objects": ",".join(objects)},
+        files={"file": ("obs.jpg", jpeg, "image/jpeg")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+def vigilante_cycle(client, token: str, name_by_id: dict) -> None:
+    """Se o Modo Vigilante estiver ligado, descreve cada câmera e registra."""
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        enabled = _get_json(client, f"{BACKEND_URL}/api/observations/config", headers).get("enabled")
+    except Exception:
+        return  # best-effort: não sabe o estado → pula o vigilante neste ciclo
+    if not enabled:
+        return
+    for camera_id, name in name_by_id.items():
+        try:
+            jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg?src={name}").content
+            if not jpeg:
+                continue
+            text, objects = describe(jpeg, None)
+            if text:
+                post_observation(client, token, camera_id, text, objects, jpeg)
+        except Exception as exc:  # câmera fora, ultralytics ausente, etc.
+            print(f"[sentinela-ai] vigilante: erro em '{name}': {exc}")
+
+
 def login(client: httpx.Client) -> str:
     resp = client.post(
         f"{BACKEND_URL}/api/auth/login",
@@ -145,6 +209,8 @@ def cycle(client: httpx.Client, token: str, debouncers: dict) -> None:
             _process_model(client, token, model, name_by_id, debouncers)
         except Exception as exc:  # go2rtc fora, ultralytics ausente, etc.
             print(f"[sentinela-ai] erro no modelo {model.get('id')}: {exc}")
+
+    vigilante_cycle(client, token, name_by_id)
 
 
 def run():

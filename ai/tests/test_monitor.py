@@ -345,3 +345,128 @@ def test_run_loops_reusing_token_then_exits(monkeypatch, capsys):
     assert seen["cycles"] == 2
     assert logins["n"] == 1  # token reaproveitado na 2ª iteração
     assert "encerrado" in capsys.readouterr().out
+
+
+# ---- Modo Vigilante: describe / post_observation / vigilante_cycle ----
+
+
+def _fake_yolo_det(monkeypatch, cls_indices):
+    class FakeBoxes:
+        cls = cls_indices
+
+    class FakeResult:
+        boxes = FakeBoxes()
+        names = {0: "person", 2: "car", 16: "dog", 3: "elephant"}
+
+    class FakeYOLO:
+        def __init__(self, w):
+            pass
+
+        def __call__(self, img):
+            return [FakeResult()]
+
+    mod = types.ModuleType("ultralytics")
+    mod.YOLO = FakeYOLO
+    monkeypatch.setitem(sys.modules, "ultralytics", mod)
+
+
+def test_describe_lists_objects_in_pt(monkeypatch):
+    _fake_yolo_det(monkeypatch, [0, 0, 16])
+    text, objs = monitor.describe(_jpeg(), None)
+    assert objs == ["person", "person", "dog"]
+    assert "2 pessoas" in text and "1 cachorro" in text
+
+
+def test_describe_with_crop_and_unknown_class(monkeypatch):
+    _fake_yolo_det(monkeypatch, [3])  # 'elephant' não está no dicionário PT
+    text, objs = monitor.describe(_jpeg(), {"x1": 0, "y1": 0, "x2": 10, "y2": 10})
+    assert objs == ["elephant"] and "1 elephant" in text
+
+
+def test_describe_empty_when_no_objects(monkeypatch):
+    _fake_yolo_det(monkeypatch, [])
+    assert monitor.describe(_jpeg(), None) == ("", [])
+
+
+@respx.mock
+def test_post_observation_posts_multipart():
+    route = respx.post(f"{monitor.BACKEND_URL}/api/observations").mock(
+        return_value=httpx.Response(201, json={"id": 1})
+    )
+    with httpx.Client() as client:
+        monitor.post_observation(client, "tok", 1, "Detectado: 1 pessoa.", ["person"], b"jpeg")
+    assert route.called
+
+
+@respx.mock
+def test_vigilante_disabled_does_nothing():
+    respx.get(f"{monitor.BACKEND_URL}/api/observations/config").mock(
+        return_value=httpx.Response(200, json={"enabled": False})
+    )
+    obs = respx.post(f"{monitor.BACKEND_URL}/api/observations").mock(
+        return_value=httpx.Response(201, json={})
+    )
+    with httpx.Client() as client:
+        monitor.vigilante_cycle(client, "tok", {1: "portao"})
+    assert not obs.called
+
+
+@respx.mock
+def test_vigilante_enabled_posts_observation(monkeypatch):
+    monkeypatch.setattr(monitor, "describe", lambda j, c: ("Detectado: 1 pessoa.", ["person"]))
+    respx.get(f"{monitor.BACKEND_URL}/api/observations/config").mock(
+        return_value=httpx.Response(200, json={"enabled": True})
+    )
+    respx.get(f"{monitor.GO2RTC_URL}/api/frame.jpeg").mock(
+        return_value=httpx.Response(200, content=b"jpeg")
+    )
+    obs = respx.post(f"{monitor.BACKEND_URL}/api/observations").mock(
+        return_value=httpx.Response(201, json={"id": 1})
+    )
+    with httpx.Client() as client:
+        monitor.vigilante_cycle(client, "tok", {1: "portao"})
+    assert obs.called
+
+
+@respx.mock
+def test_vigilante_skips_empty_frame_and_no_objects(monkeypatch):
+    monkeypatch.setattr(monitor, "describe", lambda j, c: ("", []))
+    respx.get(f"{monitor.BACKEND_URL}/api/observations/config").mock(
+        return_value=httpx.Response(200, json={"enabled": True})
+    )
+    # 1ª câmera: frame vazio (continue antes do describe); 2ª: frame ok mas sem objetos
+    respx.get(f"{monitor.GO2RTC_URL}/api/frame.jpeg").mock(
+        side_effect=[httpx.Response(200, content=b""), httpx.Response(200, content=b"jpeg")]
+    )
+    obs = respx.post(f"{monitor.BACKEND_URL}/api/observations").mock(
+        return_value=httpx.Response(201, json={})
+    )
+    with httpx.Client() as client:
+        monitor.vigilante_cycle(client, "tok", {1: "vazia", 2: "cheia"})
+    assert not obs.called
+
+
+@respx.mock
+def test_vigilante_handles_per_camera_error(monkeypatch, capsys):
+    def boom(j, c):
+        raise RuntimeError("falhou")
+
+    monkeypatch.setattr(monitor, "describe", boom)
+    respx.get(f"{monitor.BACKEND_URL}/api/observations/config").mock(
+        return_value=httpx.Response(200, json={"enabled": True})
+    )
+    respx.get(f"{monitor.GO2RTC_URL}/api/frame.jpeg").mock(
+        return_value=httpx.Response(200, content=b"jpeg")
+    )
+    with httpx.Client() as client:
+        monitor.vigilante_cycle(client, "tok", {1: "portao"})
+    assert "vigilante" in capsys.readouterr().out
+
+
+@respx.mock
+def test_vigilante_config_error_returns_silently():
+    respx.get(f"{monitor.BACKEND_URL}/api/observations/config").mock(
+        side_effect=httpx.ConnectError("backend fora")
+    )
+    with httpx.Client() as client:
+        monitor.vigilante_cycle(client, "tok", {1: "portao"})  # não levanta

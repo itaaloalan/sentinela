@@ -340,6 +340,39 @@ export async function askSummary(question: string): Promise<{ question: string; 
   ).json();
 }
 
+// ---- Modo Vigilante (observações contínuas) ----
+
+export interface Observation {
+  id: number;
+  camera_id: number;
+  description: string;
+  objects: string[];
+  snapshot: string | null;
+  created_at: string;
+}
+
+export async function listObservations(): Promise<Observation[]> {
+  return (await req("/api/observations")).json();
+}
+
+export async function getVigilanteConfig(): Promise<{ enabled: boolean }> {
+  return (await req("/api/observations/config")).json();
+}
+
+export async function setVigilante(enabled: boolean): Promise<{ enabled: boolean }> {
+  return (
+    await req("/api/observations/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    })
+  ).json();
+}
+
+export function observationSnapshotUrl(id: number) {
+  return `/api/observations/${id}/snapshot?token=${encodeURIComponent(auth.token ?? "")}`;
+}
+
 // ---- Acesso remoto (compartilhar) ----
 
 export interface AccessInfo {

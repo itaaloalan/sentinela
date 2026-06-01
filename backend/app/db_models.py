@@ -66,3 +66,14 @@ class Event(SQLModel, table=True):
     label: str
     snapshot: str                     # nome do arquivo do snapshot
     created_at: dt.datetime = Field(default_factory=_now)
+
+
+class Observation(SQLModel, table=True):
+    """Observação do Modo Vigilante: descrição do que a IA viu num frame."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    camera_id: int
+    description: str
+    objects_csv: str = ""             # classes detectadas (ex.: "person,dog")
+    snapshot: str | None = None       # nome do arquivo do snapshot (opcional)
+    created_at: dt.datetime = Field(default_factory=_now)

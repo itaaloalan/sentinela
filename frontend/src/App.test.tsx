@@ -38,6 +38,10 @@ vi.mock("./lib/api", () => ({
   getHealth: vi.fn(),
   getDaySummary: vi.fn(),
   askSummary: vi.fn(),
+  getVigilanteConfig: vi.fn().mockResolvedValue({ enabled: false }),
+  listObservations: vi.fn().mockResolvedValue([]),
+  setVigilante: vi.fn(),
+  observationSnapshotUrl: () => "",
 }));
 
 function renderAt(path: string) {
