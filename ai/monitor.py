@@ -120,6 +120,19 @@ def _get_json(client, url, headers):
     return resp.json()
 
 
+def _heartbeat(client, token: str) -> None:
+    """Sinaliza ao backend que o monitor está vivo (pra UI mostrar IA online)."""
+    import httpx  # lazy: httpx não está no topo (bootstrap roda antes do import)
+
+    try:
+        client.post(
+            f"{BACKEND_URL}/api/status/heartbeat",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    except httpx.HTTPError:
+        pass  # best-effort: não atrapalha o ciclo se o backend oscilar
+
+
 def cycle(client: httpx.Client, token: str, debouncers: dict) -> None:
     """Uma varredura. Erro num modelo é logado e não derruba os demais/o loop."""
     headers = {"Authorization": f"Bearer {token}"}
@@ -143,6 +156,7 @@ def run():
         with httpx.Client(timeout=10) as client:
             token = login(client)
             while True:
+                _heartbeat(client, token)
                 try:
                     cycle(client, token, debouncers)
                 except httpx.HTTPError as exc:

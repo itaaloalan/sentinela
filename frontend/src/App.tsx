@@ -5,6 +5,7 @@ import Grid from "./pages/Grid";
 import Training from "./pages/Training";
 import Events from "./pages/Events";
 import Notifications from "./pages/Notifications";
+import { SystemStatus } from "./components/SystemStatus";
 
 function Protected({ children }: { children: React.ReactNode }) {
   return auth.isLoggedIn ? <>{children}</> : <Navigate to="/login" replace />;
@@ -12,7 +13,9 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      {auth.isLoggedIn && <SystemStatus />}
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route
         path="/"
@@ -47,6 +50,7 @@ export default function App() {
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }

@@ -33,6 +33,7 @@ vi.mock("./lib/api", () => ({
   modelFrameUrl: () => "",
   listEvents: vi.fn().mockResolvedValue([]),
   eventSnapshotUrl: () => "",
+  getSystemStatus: vi.fn().mockResolvedValue({ backend: true, go2rtc: true, ai: true }),
 }));
 
 function renderAt(path: string) {

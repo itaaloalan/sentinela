@@ -11,6 +11,7 @@ import {
   discoverCameras,
   eventSnapshotUrl,
   getNotifyConfig,
+  getSystemStatus,
   sendTestNotification,
   setDiscordWebhook,
   setNotifyTopic,
@@ -336,6 +337,13 @@ describe("AI model API", () => {
 
   it("eventSnapshotUrl uses empty token when logged out", () => {
     expect(eventSnapshotUrl(5)).toBe("/api/events/5/snapshot?token=");
+  });
+
+  it("getSystemStatus GETs /api/status", async () => {
+    auth.token = "t";
+    fetchMock.mockResolvedValue(mockResponse({ json: { backend: true, go2rtc: false, ai: true } }));
+    expect(await getSystemStatus()).toEqual({ backend: true, go2rtc: false, ai: true });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/status");
   });
 
   it("getNotifyConfig GETs /api/notify/config", async () => {

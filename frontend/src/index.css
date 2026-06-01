@@ -247,6 +247,22 @@ button.primary:disabled { opacity: 0.5; }
 .event-item img { width: 120px; height: 68px; object-fit: cover; border-radius: 6px; }
 .event-info { display: flex; flex-direction: column; gap: 0.2rem; }
 
+/* barra de status dos serviços (sempre visível) */
+.sys-status {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  gap: 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.8rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  z-index: 30;
+}
+
 /* guia de notificações (ntfy) */
 .notify-guide { max-width: 640px; display: flex; flex-direction: column; gap: 0.8rem; line-height: 1.5; }
 .notify-guide code { background: #0b1220; padding: 0.1rem 0.4rem; border-radius: 6px; }

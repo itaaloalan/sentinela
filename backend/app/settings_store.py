@@ -46,3 +46,15 @@ def discord_webhook() -> str:
 
 def set_discord_webhook(value: str) -> None:
     _set(_DISCORD_WEBHOOK, value)
+
+
+_AI_HEARTBEAT = "ai_heartbeat"
+
+
+def ai_heartbeat() -> str:
+    """Último epoch (str) em que o monitor de IA deu sinal de vida; '' se nunca."""
+    return _get(_AI_HEARTBEAT, "")
+
+
+def set_ai_heartbeat(value: str) -> None:
+    _set(_AI_HEARTBEAT, value)

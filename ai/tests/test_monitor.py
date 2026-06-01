@@ -263,11 +263,28 @@ def test_cycle_raises_on_backend_error():
     assert raised
 
 
+@respx.mock
+def test_heartbeat_posts_and_swallows_errors():
+    ok = respx.post(f"{monitor.BACKEND_URL}/api/status/heartbeat").mock(
+        return_value=httpx.Response(200, json={"ok": True})
+    )
+    with httpx.Client() as client:
+        monitor._heartbeat(client, "tok")
+    assert ok.called
+
+    class _Boom:  # backend fora → erro engolido (best-effort)
+        def post(self, *a, **k):
+            raise httpx.ConnectError("fora")
+
+    monitor._heartbeat(_Boom(), "tok")  # não levanta
+
+
 # ---- run() (loop) ----
 
 def test_run_logs_cycle_error_then_exits(monkeypatch, capsys):
     # um ciclo que falha (backend caiu) é logado e o loop segue até o KeyboardInterrupt
     monkeypatch.setattr(monitor, "login", lambda client: "tok")
+    monkeypatch.setattr(monitor, "_heartbeat", lambda c, t: None)
 
     def _boom(c, t, d):
         raise httpx.ConnectError("backend fora")
@@ -282,6 +299,7 @@ def test_run_logs_cycle_error_then_exits(monkeypatch, capsys):
 
 def test_run_loops_then_exits(monkeypatch, capsys):
     monkeypatch.setattr(monitor, "login", lambda client: "tok")
+    monkeypatch.setattr(monitor, "_heartbeat", lambda c, t: None)
     seen = {"cycles": 0}
     monkeypatch.setattr(monitor, "cycle", lambda c, t, d: seen.update(cycles=seen["cycles"] + 1))
 

@@ -284,6 +284,18 @@ export interface NotifyConfig {
   discord_enabled: boolean;
 }
 
+// ---- Status dos serviços ----
+
+export interface SystemStatusInfo {
+  backend: boolean;
+  go2rtc: boolean;
+  ai: boolean;
+}
+
+export async function getSystemStatus(): Promise<SystemStatusInfo> {
+  return (await req("/api/status")).json();
+}
+
 export async function getNotifyConfig(): Promise<NotifyConfig> {
   return (await req("/api/notify/config")).json();
 }
