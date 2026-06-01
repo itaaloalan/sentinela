@@ -7,11 +7,12 @@ Imports pesados (ultralytics, PIL) são lazy. Funções puras (Debouncer/classif
 cycle) são testáveis isoladamente; `run()` é o loop de longa duração.
 Ver docs/AI-GATE.md.
 """
+from __future__ import annotations
+
 import io
 import os
+import sys
 import time
-
-import httpx
 
 GO2RTC_URL = os.environ.get("GO2RTC_URL", "http://localhost:1984")
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
@@ -110,6 +111,8 @@ def cycle(client: httpx.Client, token: str, debouncers: dict) -> None:
 
 
 def run():
+    import httpx
+
     print(f"[sentinela-ai] monitor: interval={INTERVAL}s debounce={DEBOUNCE}s")
     debouncers: dict = {}
     try:
@@ -123,4 +126,9 @@ def run():
 
 
 if __name__ == "__main__":
+    # auto-bootstrap: se chamado com outro Python (ex.: runner usando o python do
+    # sistema), re-executa na venv do ai/ que tem as dependências (httpx, etc.).
+    _venv_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
+    if os.path.exists(_venv_py) and os.path.realpath(sys.executable) != os.path.realpath(_venv_py):
+        os.execv(_venv_py, [_venv_py, *sys.argv])
     run()
