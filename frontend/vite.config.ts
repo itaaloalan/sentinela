@@ -8,6 +8,14 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": { target: "http://localhost:8000", changeOrigin: true },
+      // go2rtc (vídeo ao vivo WebRTC): proxia API + WebSocket de sinalização,
+      // mantendo tudo numa origem só (a 1984 não fica exposta ao browser direto).
+      "/go2rtc": {
+        target: "http://localhost:1984",
+        changeOrigin: true,
+        ws: true,
+        rewrite: (p) => p.replace(/^\/go2rtc/, ""),
+      },
     },
   },
   test: {

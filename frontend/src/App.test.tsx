@@ -16,7 +16,8 @@ vi.mock("./lib/api", () => ({
   listCameras: vi.fn().mockResolvedValue([]),
   createCamera: vi.fn(),
   deleteCamera: vi.fn(),
-  snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot`,
+  discoverCameras: vi.fn().mockResolvedValue({ subnet: "", scanned: 0, reachable: [], candidates: [] }),
+  streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
 }));
 
 function renderAt(path: string) {

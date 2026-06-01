@@ -7,6 +7,7 @@ import {
   listCameras,
   login,
   snapshotUrl,
+  streamWsUrl,
 } from "./api";
 
 function mockResponse(opts: {
@@ -128,7 +129,21 @@ describe("authenticated requests", () => {
 });
 
 describe("snapshotUrl", () => {
-  it("builds the proxied snapshot path", () => {
-    expect(snapshotUrl(3)).toBe("/api/cameras/3/snapshot");
+  it("includes the token in the query when logged in", () => {
+    auth.token = "tok";
+    expect(snapshotUrl(3)).toBe("/api/cameras/3/snapshot?token=tok");
+  });
+
+  it("uses an empty token when logged out", () => {
+    expect(snapshotUrl(3)).toBe("/api/cameras/3/snapshot?token=");
+  });
+});
+
+describe("streamWsUrl", () => {
+  it("builds the proxied go2rtc WebSocket URL", () => {
+    // jsdom roda em http://localhost/ → ws
+    expect(streamWsUrl("portao")).toBe(
+      "ws://localhost/go2rtc/api/ws?src=portao",
+    );
   });
 });

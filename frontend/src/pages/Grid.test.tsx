@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Grid from "./Grid";
 
@@ -12,7 +12,6 @@ const api = {
   createCamera: vi.fn(),
   deleteCamera: vi.fn(),
   discoverCameras: vi.fn(),
-  snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot`,
 };
 vi.mock("../lib/api", () => ({
   auth: { logout: (...a: unknown[]) => api.auth.logout(...a) },
@@ -20,7 +19,7 @@ vi.mock("../lib/api", () => ({
   createCamera: (...a: unknown[]) => api.createCamera(...a),
   deleteCamera: (...a: unknown[]) => api.deleteCamera(...a),
   discoverCameras: (...a: unknown[]) => api.discoverCameras(...a),
-  snapshotUrl: (id: number) => api.snapshotUrl(id),
+  streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
 }));
 
 const FOUND = {
@@ -92,6 +91,27 @@ describe("Grid", () => {
     expect(await screen.findByText("portao")).toBeInTheDocument();
   });
 
+  it("replaces SENHA in the source with the typed password", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await user.type(screen.getByPlaceholderText(/nome/), "portao");
+    await user.type(
+      screen.getByPlaceholderText(/source/),
+      "rtsp://admin:SENHA@192.168.0.12:554/onvif1",
+    );
+    await user.type(screen.getByPlaceholderText(/senha/), "qwerty123");
+    await user.click(screen.getByRole("button", { name: /Cadastrar/ }));
+    await waitFor(() =>
+      expect(api.createCamera).toHaveBeenCalledWith({
+        name: "portao",
+        source: "rtsp://admin:qwerty123@192.168.0.12:554/onvif1",
+        kind: "rtsp",
+        ptz_enabled: false,
+      }),
+    );
+  });
+
   it("shows an error when creating fails", async () => {
     api.createCamera.mockRejectedValue(new Error("dup"));
     const user = userEvent.setup();
@@ -158,12 +178,17 @@ describe("Grid", () => {
     expect(await screen.findByText("Erro ao excluir")).toBeInTheDocument();
   });
 
-  it("hides a snapshot image that fails to load", async () => {
+  it("renders a live video-stream pointing at the camera", async () => {
     api.listCameras.mockResolvedValue(ONE);
-    render(<Grid />);
-    const img = (await screen.findByAltText("portao")) as HTMLImageElement;
-    fireEvent.error(img);
-    expect(img.style.display).toBe("none");
+    const { container } = render(<Grid />);
+    await screen.findByText("portao");
+    const el = container.querySelector("video-stream") as unknown as {
+      src: string;
+      mode: string;
+    };
+    expect(el).toBeTruthy();
+    expect(el.src).toBe("ws://localhost/go2rtc/api/ws?src=portao");
+    expect(el.mode).toBe("webrtc,mse");
   });
 
   it("discovers cameras, logs the scan, and prefills the form when clicking Usar", async () => {

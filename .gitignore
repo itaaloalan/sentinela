@@ -40,8 +40,10 @@ frontend/.vite/
 frontend/vite.config.js
 frontend/vite.config.d.ts
 
-# go2rtc runtime
+# go2rtc runtime — o go2rtc reescreve este arquivo (grava streams com senha
+# resolvida). Versionamos só o template go2rtc.yaml.example.
 go2rtc/*.log
+go2rtc/go2rtc.yaml
 
 # Editor / OS
 .DS_Store

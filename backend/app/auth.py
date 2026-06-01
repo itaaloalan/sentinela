@@ -6,7 +6,7 @@ a senha contra o hash; nunca compara texto puro.
 import datetime as dt
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 
@@ -16,7 +16,16 @@ from .db_models import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 oauth2 = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+# auto_error=False: usado por endpoints de mídia que aceitam o token na query.
+oauth2_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 ALGO = "HS256"
+
+
+def _subject_from_token(token: str) -> str:
+    try:
+        return jwt.decode(token, settings.secret_key, algorithms=[ALGO])["sub"]
+    except jwt.PyJWTError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token inválido")
 
 
 def _make_token(sub: str) -> str:
@@ -41,8 +50,19 @@ def login(
 
 
 def current_user(token: str = Depends(oauth2)) -> str:
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[ALGO])
-        return payload["sub"]
-    except jwt.PyJWTError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token inválido")
+    return _subject_from_token(token)
+
+
+def media_user(
+    header_token: str | None = Depends(oauth2_optional),
+    token: str | None = Query(default=None),
+) -> str:
+    """Auth para endpoints de mídia: token via header OU query (`?token=`).
+
+    Tags <img>/<video> não enviam o header Authorization, então aceitamos o
+    JWT na query string.
+    """
+    raw = header_token or token
+    if raw is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token ausente")
+    return _subject_from_token(raw)

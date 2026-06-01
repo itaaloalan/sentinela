@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from . import discovery
-from .auth import current_user
+from .auth import current_user, media_user
 from .config import settings
 from .database import get_session
 from .db_models import Camera
@@ -77,16 +77,21 @@ async def delete_camera(
     return Response(status_code=204)
 
 
-@router.get("/{cid}/snapshot")
-async def snapshot(
-    cid: int,
-    _: str = Depends(current_user),
-    session: Session = Depends(get_session),
-):
-    """Proxy autenticado do snapshot do go2rtc (não expor a 1984 direto)."""
+def _require_camera(session: Session, cid: int) -> Camera:
     cam = session.get(Camera, cid)
     if cam is None:
         raise HTTPException(404, "Câmera não encontrada")
+    return cam
+
+
+@router.get("/{cid}/snapshot")
+async def snapshot(
+    cid: int,
+    _: str = Depends(media_user),
+    session: Session = Depends(get_session),
+):
+    """Proxy autenticado do snapshot do go2rtc (não expor a 1984 direto)."""
+    cam = _require_camera(session, cid)
     url = f"{settings.go2rtc_url}/api/frame.jpeg?src={cam.name}"
     async with httpx.AsyncClient(timeout=10) as client:
         try:

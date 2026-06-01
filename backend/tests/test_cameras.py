@@ -89,6 +89,22 @@ def test_snapshot_camera_not_found(client, auth_headers):
     assert resp.status_code == 404
 
 
+def test_snapshot_auth_via_query_token(client, auth_headers):
+    """Tags <img> não mandam header → o token vai na query (?token=)."""
+    cid = _create(client, auth_headers).json()["id"]
+    token = auth_headers["Authorization"].split(" ", 1)[1]
+    with respx.mock(assert_all_mocked=False) as router:
+        router.get(FRAME_URL).mock(return_value=httpx.Response(200, content=b"\xff\xd8jpeg"))
+        resp = client.get(f"/api/cameras/{cid}/snapshot?token={token}")
+    assert resp.status_code == 200
+    assert resp.content == b"\xff\xd8jpeg"
+
+
+def test_snapshot_without_any_token_returns_401(client, auth_headers):
+    cid = _create(client, auth_headers).json()["id"]
+    assert client.get(f"/api/cameras/{cid}/snapshot").status_code == 401
+
+
 def test_snapshot_go2rtc_unavailable_returns_502(client, auth_headers):
     cid = _create(client, auth_headers).json()["id"]
     with respx.mock(assert_all_mocked=False) as router:

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   auth,
@@ -6,18 +6,36 @@ import {
   deleteCamera,
   discoverCameras,
   listCameras,
-  snapshotUrl,
+  streamWsUrl,
   type Camera,
   type DiscoveredCamera,
 } from "../lib/api";
 
 const KINDS = ["rtsp", "dvrip", "onvif"];
 
+// Vídeo ao vivo via WebRTC (web component <video-stream> do go2rtc).
+// src/mode/background são propriedades, setadas via ref.
+function CameraVideo({ name }: { name: string }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = ref.current as unknown as {
+      mode: string;
+      background: boolean;
+      src: string;
+    };
+    el.mode = "webrtc,mse";
+    el.background = false;
+    el.src = streamWsUrl(name);
+  }, [name]);
+  return <video-stream ref={ref} className="cam-video" />;
+}
+
 export default function Grid() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [source, setSource] = useState("");
+  const [password, setPassword] = useState("");
   const [kind, setKind] = useState("rtsp");
   const [ptz, setPtz] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -46,9 +64,12 @@ export default function Grid() {
     setBusy(true);
     setError("");
     try {
-      await createCamera({ name, source, kind, ptz_enabled: ptz });
+      // a senha digitada substitui o placeholder SENHA do source sugerido
+      const finalSource = password ? source.split("SENHA").join(password) : source;
+      await createCamera({ name, source: finalSource, kind, ptz_enabled: ptz });
       setName("");
       setSource("");
+      setPassword("");
       setKind("rtsp");
       setPtz(false);
       await refresh();
@@ -127,6 +148,13 @@ export default function Grid() {
             onChange={(e) => setSource(e.target.value)}
             required
           />
+          <input
+            type="password"
+            placeholder="senha (substitui SENHA)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="off"
+          />
           <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="tipo">
             {KINDS.map((k) => (
               <option key={k} value={k}>{k}</option>
@@ -172,13 +200,7 @@ export default function Grid() {
           {cameras.map((cam) => (
             <div className="cam-card" key={cam.id}>
               <div className="video">
-                <img
-                  src={snapshotUrl(cam.id)}
-                  alt={cam.name}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
+                <CameraVideo name={cam.name} />
               </div>
               <div className="label">
                 {cam.name}

@@ -87,6 +87,14 @@ export async function discoverCameras(): Promise<DiscoverResult> {
   return (await req("/api/cameras/discover")).json();
 }
 
+// Tags <img> não enviam header Authorization → token na query.
 export function snapshotUrl(id: number) {
-  return `/api/cameras/${id}/snapshot`;
+  return `/api/cameras/${id}/snapshot?token=${encodeURIComponent(auth.token ?? "")}`;
+}
+
+// URL do WebSocket de sinalização do go2rtc (proxiado em /go2rtc), usada pelo
+// web component <video-stream> para o vídeo ao vivo WebRTC/MSE.
+export function streamWsUrl(name: string) {
+  const proto = location.protocol.replace("http", "ws"); // http→ws, https→wss
+  return `${proto}//${location.host}/go2rtc/api/ws?src=${encodeURIComponent(name)}`;
 }
