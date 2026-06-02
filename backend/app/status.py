@@ -162,6 +162,25 @@ async def status(_: str = Depends(current_user)):
     return {"backend": True, "go2rtc": await _go2rtc_ok(), "ai": _ai_ok()}
 
 
+@router.get("/overview")
+async def overview(
+    _: str = Depends(current_user),
+    session: Session = Depends(get_session),
+):
+    """Resumo leve p/ o painel/visão geral (sem puxar frames — rápido)."""
+    streams = await _go2rtc_streams() or {}
+    cameras = [
+        {"name": cam.name, "online": bool(streams.get(cam.name, {}).get("producers"))}
+        for cam in session.exec(select(Camera)).all()
+    ]
+    disk = _disk()
+    return {
+        "cameras": cameras,
+        "events_today": _events_today(session),
+        "disk_percent": disk["percent"] if disk else None,
+    }
+
+
 @router.get("/health")
 async def health(
     _: str = Depends(current_user),

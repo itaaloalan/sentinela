@@ -21,6 +21,7 @@ import {
   getAccessInfo,
   getDaySummary,
   getHealth,
+  getOverview,
   getVigilanteConfig,
   listObservations,
   observationSnapshotUrl,
@@ -507,6 +508,14 @@ describe("AI model API", () => {
     fetchMock.mockResolvedValue(mockResponse({ json: { sent: true } }));
     expect(await sendEmergency()).toEqual({ sent: true });
     expect(fetchMock.mock.calls[0][0]).toBe("/api/family/emergency");
+  });
+
+  it("getOverview GETs /api/status/overview", async () => {
+    auth.token = "t";
+    const ov = { cameras: [], events_today: 0, disk_percent: null };
+    fetchMock.mockResolvedValue(mockResponse({ json: ov }));
+    expect(await getOverview()).toEqual(ov);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/status/overview");
   });
 
   it("getNotifyConfig GETs /api/notify/config", async () => {

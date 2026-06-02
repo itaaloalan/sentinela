@@ -148,6 +148,38 @@ main { padding: 1rem; max-width: 1100px; margin: 0 auto; }
 }
 .cam-card .label .spacer { flex: 1; }
 
+/* card protagonista: header (nome + status + ⋯), rodapé (último evento) */
+.cam-head { position: relative; display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.7rem; }
+.cam-title { font-weight: 700; font-size: 1.02rem; flex: 1; }
+.status-badge { font-size: 0.72rem; padding: 0.12rem 0.5rem; border-radius: 999px; white-space: nowrap; }
+.status-online { background: rgba(34,197,94,0.15); color: #4ade80; }
+.status-offline { background: rgba(239,68,68,0.15); color: #f87171; }
+.status-reconnecting { background: rgba(234,179,8,0.15); color: #fbbf24; }
+.dots { width: auto; margin: 0; padding: 0.1rem 0.5rem; background: transparent; font-size: 1.2rem; line-height: 1; }
+.card-menu { position: absolute; top: 100%; right: 0.4rem; z-index: 20; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; padding: 0.3rem; min-width: 8rem; }
+.card-menu button { width: 100%; margin: 0; text-align: left; }
+.cam-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.55rem 0.7rem; font-size: 0.85rem; color: var(--muted); flex-wrap: wrap; }
+.cam-foot button { width: auto; margin: 0; padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+
+/* dashboard superior (estatísticas da casa) */
+.stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: 0.7rem; margin-bottom: 1rem; }
+.stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.stat strong { font-size: 1.4rem; }
+.stat span { color: var(--muted); font-size: 0.78rem; }
+
+/* alternador de modo grade/monitoramento */
+.view-toggle { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+.view-toggle button { width: auto; margin: 0; padding: 0.35rem 0.9rem; }
+.view-toggle .active { background: var(--accent, #2563eb); color: #fff; }
+
+/* modo monitoramento: 1 grande + tira de miniaturas */
+.monitor-main { aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 0.7rem; }
+.monitor-strip { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.3rem; }
+.thumb { width: auto; margin: 0; padding: 0; border: 2px solid transparent; border-radius: 8px; overflow: hidden; background: #000; flex: 0 0 auto; }
+.thumb img { width: 120px; height: 68px; object-fit: cover; display: block; }
+.thumb span { display: block; font-size: 0.7rem; padding: 0.2rem; color: var(--muted); }
+.thumb.active { border-color: var(--accent, #2563eb); }
+
 /* formulário de cadastro de câmera */
 .cam-form {
   display: flex;

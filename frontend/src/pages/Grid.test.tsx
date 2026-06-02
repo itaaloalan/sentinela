@@ -14,6 +14,8 @@ const api = {
   deleteCamera: vi.fn(),
   discoverCameras: vi.fn(),
   recordView: vi.fn(),
+  getOverview: vi.fn(),
+  listEvents: vi.fn(),
 };
 vi.mock("../lib/api", () => ({
   auth: { logout: (...a: unknown[]) => api.auth.logout(...a) },
@@ -23,6 +25,8 @@ vi.mock("../lib/api", () => ({
   deleteCamera: (...a: unknown[]) => api.deleteCamera(...a),
   discoverCameras: (...a: unknown[]) => api.discoverCameras(...a),
   recordView: (...a: unknown[]) => api.recordView(...a),
+  getOverview: (...a: unknown[]) => api.getOverview(...a),
+  listEvents: (...a: unknown[]) => api.listEvents(...a),
   streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
   snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot?token=`,
   ptzMove: vi.fn(),
@@ -63,6 +67,8 @@ beforeEach(() => {
   api.deleteCamera.mockReset().mockResolvedValue(undefined);
   api.discoverCameras.mockReset().mockResolvedValue(FOUND);
   api.recordView.mockReset().mockResolvedValue(undefined);
+  api.getOverview.mockReset().mockResolvedValue({ cameras: [], events_today: 0, disk_percent: null });
+  api.listEvents.mockReset().mockResolvedValue([]);
 });
 
 describe("Grid", () => {
@@ -74,7 +80,7 @@ describe("Grid", () => {
   it("lists cameras loaded from the API", async () => {
     api.listCameras.mockResolvedValue(ONE);
     render(<Grid />);
-    expect(await screen.findByText("portao")).toBeInTheDocument();
+    expect(await screen.findByText("📷 portao")).toBeInTheDocument();
   });
 
   it("shows an error when loading fails (Error)", async () => {
@@ -108,7 +114,7 @@ describe("Grid", () => {
         ptz_enabled: true,
       }),
     );
-    expect(await screen.findByText("portao")).toBeInTheDocument();
+    expect(await screen.findByText("📷 portao")).toBeInTheDocument();
   });
 
   it("replaces SENHA in the source with the typed password", async () => {
@@ -137,7 +143,8 @@ describe("Grid", () => {
     api.listCameras.mockResolvedValue(ONE);
     const user = userEvent.setup();
     render(<Grid />);
-    await screen.findByText("portao");
+    await screen.findByText("📷 portao");
+    await user.click(screen.getByRole("button", { name: "Opções de portao" }));
     await user.click(screen.getByRole("button", { name: "Editar" }));
     expect((screen.getByPlaceholderText(/nome/) as HTMLInputElement).value).toBe("portao");
     expect((screen.getByPlaceholderText(/source/) as HTMLInputElement).value).toBe("rtsp://x");
@@ -160,7 +167,8 @@ describe("Grid", () => {
     api.listCameras.mockResolvedValue(ONE);
     const user = userEvent.setup();
     render(<Grid />);
-    await screen.findByText("portao");
+    await screen.findByText("📷 portao");
+    await user.click(screen.getByRole("button", { name: "Opções de portao" }));
     await user.click(screen.getByRole("button", { name: "Editar" }));
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
     expect((screen.getByPlaceholderText(/nome/) as HTMLInputElement).value).toBe("");
@@ -209,8 +217,9 @@ describe("Grid", () => {
     api.listCameras.mockResolvedValue(ONE);
     const user = userEvent.setup();
     render(<Grid />);
-    await screen.findByText("portao");
+    await screen.findByText("📷 portao");
     api.listCameras.mockResolvedValue([]);
+    await user.click(screen.getByRole("button", { name: "Opções de portao" }));
     await user.click(screen.getByRole("button", { name: "Excluir" }));
     await waitFor(() => expect(api.deleteCamera).toHaveBeenCalledWith(1));
     expect(await screen.findByText(/Nenhuma câmera/)).toBeInTheDocument();
@@ -221,7 +230,8 @@ describe("Grid", () => {
     api.deleteCamera.mockRejectedValue(new Error("nao deu"));
     const user = userEvent.setup();
     render(<Grid />);
-    await screen.findByText("portao");
+    await screen.findByText("📷 portao");
+    await user.click(screen.getByRole("button", { name: "Opções de portao" }));
     await user.click(screen.getByRole("button", { name: "Excluir" }));
     expect(await screen.findByText("nao deu")).toBeInTheDocument();
   });
@@ -231,7 +241,8 @@ describe("Grid", () => {
     api.deleteCamera.mockRejectedValue("x");
     const user = userEvent.setup();
     render(<Grid />);
-    await screen.findByText("portao");
+    await screen.findByText("📷 portao");
+    await user.click(screen.getByRole("button", { name: "Opções de portao" }));
     await user.click(screen.getByRole("button", { name: "Excluir" }));
     expect(await screen.findByText("Erro ao excluir")).toBeInTheDocument();
   });
@@ -369,6 +380,95 @@ describe("Grid", () => {
     await openMenu(user);
     await user.click(screen.getByRole("button", { name: "❤️ Saúde" }));
     expect(navigate).toHaveBeenCalledWith("/saude");
+  });
+
+  const TWO = [
+    ONE[0],
+    { id: 2, name: "quintal", source: "rtsp://y", kind: "rtsp", ptz_enabled: false },
+  ];
+
+  it("shows the stats bar, online status and last event", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    api.getOverview.mockResolvedValue({
+      cameras: [{ name: "portao", online: true }],
+      events_today: 17,
+      disk_percent: 78,
+    });
+    const fiveMinAgo = new Date(Date.now() - 5 * 60000).toISOString();
+    api.listEvents.mockResolvedValue([
+      { id: 1, model_id: 1, camera_id: 1, label: "aberto", snapshot: "s", created_at: fiveMinAgo },
+    ]);
+    render(<Grid />);
+    expect(await screen.findByText("🟢 Online")).toBeInTheDocument();
+    expect(screen.getByText("1/1")).toBeInTheDocument();
+    expect(screen.getByText("17")).toBeInTheDocument();
+    expect(screen.getByText("78%")).toBeInTheDocument();
+    expect(screen.getByText("há 5 min")).toBeInTheDocument();
+    expect(screen.getByText(/Último evento:/)).toBeInTheDocument();
+  });
+
+  it("opens the event history from a card", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText("📷 portao");
+    await user.click(screen.getByRole("button", { name: "🎥 Ver histórico" }));
+    expect(navigate).toHaveBeenCalledWith("/eventos");
+  });
+
+  it("shows offline status", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    api.getOverview.mockResolvedValue({ cameras: [{ name: "portao", online: false }], events_today: 0, disk_percent: null });
+    render(<Grid />);
+    expect(await screen.findByText("🔴 Offline")).toBeInTheDocument();
+  });
+
+  it("shows reconnecting status while overview is unavailable", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    api.getOverview.mockRejectedValue(new Error("x"));
+    render(<Grid />);
+    expect(await screen.findByText("🟡 Conectando")).toBeInTheDocument();
+  });
+
+  it("shows 'agora' and 'há N h' for the last movement", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    api.listEvents.mockResolvedValue([
+      { id: 1, model_id: 1, camera_id: 9, label: "x", snapshot: "s", created_at: new Date().toISOString() },
+    ]);
+    const { unmount } = render(<Grid />);
+    expect(await screen.findByText("agora")).toBeInTheDocument();
+    unmount();
+    const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString();
+    api.listEvents.mockResolvedValue([
+      { id: 2, model_id: 1, camera_id: 9, label: "x", snapshot: "s", created_at: twoHoursAgo },
+    ]);
+    render(<Grid />);
+    expect(await screen.findByText("há 2 h")).toBeInTheDocument();
+  });
+
+  it("toggles the three-dot card menu", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText("📷 portao");
+    await user.click(screen.getByRole("button", { name: "Opções de portao" }));
+    expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Opções de portao" }));
+    expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+  });
+
+  it("switches to monitoring mode and picks a camera from the strip", async () => {
+    api.listCameras.mockResolvedValue(TWO);
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText("📷 portao");
+    await user.click(screen.getByRole("button", { name: "▢ Monitoramento" }));
+    const thumbs = screen.getAllByRole("img");
+    expect(thumbs.length).toBe(2);
+    await user.click(screen.getByRole("button", { name: /quintal/ }));
+    // de volta para a grade
+    await user.click(screen.getByRole("button", { name: "▦ Grade" }));
+    expect(await screen.findByText("📷 quintal")).toBeInTheDocument();
   });
 
   it("logs out and navigates to /login", async () => {

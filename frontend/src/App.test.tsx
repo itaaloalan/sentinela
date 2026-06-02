@@ -32,6 +32,7 @@ vi.mock("./lib/api", () => ({
   activateModel: vi.fn(),
   modelFrameUrl: () => "",
   listEvents: vi.fn().mockResolvedValue([]),
+  getOverview: vi.fn().mockResolvedValue({ cameras: [], events_today: 0, disk_percent: null }),
   eventSnapshotUrl: () => "",
   getSystemStatus: vi.fn().mockResolvedValue({ backend: true, go2rtc: true, ai: true }),
   getAccessInfo: vi.fn(),

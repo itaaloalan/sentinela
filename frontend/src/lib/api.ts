@@ -328,6 +328,16 @@ export async function getHealth(): Promise<HealthInfo> {
   return (await req("/api/status/health")).json();
 }
 
+export interface OverviewInfo {
+  cameras: { name: string; online: boolean }[];
+  events_today: number;
+  disk_percent: number | null;
+}
+
+export async function getOverview(): Promise<OverviewInfo> {
+  return (await req("/api/status/overview")).json();
+}
+
 // ---- Resumo do dia + perguntas ----
 
 export interface DaySummary {

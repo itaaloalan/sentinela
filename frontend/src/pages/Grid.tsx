@@ -5,17 +5,33 @@ import {
   createCamera,
   deleteCamera,
   discoverCameras,
+  getOverview,
   listCameras,
+  listEvents,
   recordView,
+  snapshotUrl,
   updateCamera,
+  type AlertEvent,
   type Camera,
   type DiscoveredCamera,
+  type OverviewInfo,
 } from "../lib/api";
 import { CameraVideo } from "../components/CameraVideo";
 import { AsyncButton } from "../components/AsyncButton";
 import { ActionsMenu } from "../components/ActionsMenu";
 
 const KINDS = ["rtsp", "dvrip", "onvif"];
+
+function agoText(iso: string): string {
+  const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  return `há ${Math.floor(min / 60)} h`;
+}
+
+function hhmm(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 export default function Grid() {
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -31,6 +47,11 @@ export default function Grid() {
   const [found, setFound] = useState<DiscoveredCamera[]>([]);
   const [log, setLog] = useState<string[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [overview, setOverview] = useState<OverviewInfo | null>(null);
+  const [events, setEvents] = useState<AlertEvent[]>([]);
+  const [mode, setMode] = useState<"grade" | "monitor">("grade");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [menuId, setMenuId] = useState<number | null>(null);
   const nav = useNavigate();
 
   const refresh = useCallback(() => {
@@ -42,7 +63,22 @@ export default function Grid() {
   useEffect(() => {
     refresh();
     recordView(null).catch(() => {}); // registra acesso ao painel (histórico)
+    getOverview().then(setOverview).catch(() => {});
+    listEvents().then(setEvents).catch(() => {});
   }, [refresh]);
+
+  function statusOf(name: string) {
+    if (!overview) return { cls: "reconnecting", dot: "🟡", label: "Conectando" };
+    const online = overview.cameras.find((c) => c.name === name)?.online;
+    return online
+      ? { cls: "online", dot: "🟢", label: "Online" }
+      : { cls: "offline", dot: "🔴", label: "Offline" };
+  }
+
+  function lastEventFor(cameraId: number): string {
+    const ev = events.find((e) => e.camera_id === cameraId);
+    return ev ? hhmm(ev.created_at) : "—";
+  }
 
   function logout() {
     auth.logout();
@@ -59,6 +95,7 @@ export default function Grid() {
   }
 
   function onEdit(cam: Camera) {
+    setMenuId(null);
     setShowForm(true);
     setEditingId(cam.id);
     setName(cam.name);
@@ -228,21 +265,103 @@ export default function Grid() {
         {cameras.length === 0 && !error && (
           <div className="empty">Nenhuma câmera cadastrada ainda.</div>
         )}
-        <div className="cam-grid">
-          {cameras.map((cam) => (
-            <div className="cam-card" key={cam.id}>
-              <div className="video">
-                <CameraVideo id={cam.id} name={cam.name} ptz={cam.ptz_enabled} />
+
+        {cameras.length > 0 && (
+          <>
+            <div className="stats-bar">
+              <div className="stat">
+                <strong>{overview ? overview.cameras.filter((c) => c.online).length : "—"}/{cameras.length}</strong>
+                <span>câmeras online</span>
               </div>
-              <div className="label">
-                {cam.name}
-                <span className="spacer" />
-                <button className="ghost" onClick={() => onEdit(cam)}>Editar</button>
-                <AsyncButton className="ghost" onClick={() => onDelete(cam.id)}>Excluir</AsyncButton>
+              <div className="stat">
+                <strong>{overview ? overview.events_today : "—"}</strong>
+                <span>eventos hoje</span>
+              </div>
+              <div className="stat">
+                <strong>{events.length > 0 ? agoText(events[0].created_at) : "—"}</strong>
+                <span>último movimento</span>
+              </div>
+              <div className="stat">
+                <strong>{overview?.disk_percent != null ? `${overview.disk_percent}%` : "—"}</strong>
+                <span>armazenamento</span>
               </div>
             </div>
-          ))}
-        </div>
+
+            <div className="view-toggle">
+              <button
+                className={mode === "grade" ? "active" : "ghost"}
+                onClick={() => setMode("grade")}
+              >
+                ▦ Grade
+              </button>
+              <button
+                className={mode === "monitor" ? "active" : "ghost"}
+                onClick={() => setMode("monitor")}
+              >
+                ▢ Monitoramento
+              </button>
+            </div>
+          </>
+        )}
+
+        {mode === "grade" && (
+          <div className="cam-grid">
+            {cameras.map((cam) => {
+              const st = statusOf(cam.name);
+              return (
+                <div className="cam-card" key={cam.id}>
+                  <div className="cam-head">
+                    <span className="cam-title">📷 {cam.name}</span>
+                    <span className={`status-badge status-${st.cls}`}>{st.dot} {st.label}</span>
+                    <button
+                      className="dots"
+                      aria-label={`Opções de ${cam.name}`}
+                      onClick={() => setMenuId((id) => (id === cam.id ? null : cam.id))}
+                    >
+                      ⋯
+                    </button>
+                    {menuId === cam.id && (
+                      <div className="card-menu">
+                        <button className="ghost" onClick={() => onEdit(cam)}>Editar</button>
+                        <AsyncButton className="ghost" onClick={() => onDelete(cam.id)}>Excluir</AsyncButton>
+                      </div>
+                    )}
+                  </div>
+                  <div className="video">
+                    <CameraVideo id={cam.id} name={cam.name} ptz={cam.ptz_enabled} />
+                  </div>
+                  <div className="cam-foot">
+                    <span>📅 Último evento: {lastEventFor(cam.id)}</span>
+                    <button className="ghost" onClick={() => nav("/eventos")}>🎥 Ver histórico</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {mode === "monitor" && cameras.length > 0 && (
+          <div className="monitor">
+            <div className="monitor-main">
+              {(() => {
+                const sel = cameras.find((c) => c.id === selectedId) ?? cameras[0];
+                return <CameraVideo id={sel.id} name={sel.name} ptz={sel.ptz_enabled} />;
+              })()}
+            </div>
+            <div className="monitor-strip">
+              {cameras.map((cam) => (
+                <button
+                  key={cam.id}
+                  className={`thumb${(selectedId ?? cameras[0].id) === cam.id ? " active" : ""}`}
+                  onClick={() => setSelectedId(cam.id)}
+                >
+                  <img src={snapshotUrl(cam.id)} alt={cam.name} />
+                  <span>{cam.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </>
   );

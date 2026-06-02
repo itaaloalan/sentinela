@@ -122,6 +122,34 @@ def test_health_go2rtc_down_and_no_heartbeat(client, auth_headers, monkeypatch):
     assert body["ai"]["last_seen_seconds"] is None
 
 
+def test_overview_lightweight(client, auth_headers, monkeypatch):
+    with Session(database.engine) as s:
+        s.add(Camera(name="portao", source="rtsp://x", kind="rtsp"))
+        s.add(Event(model_id=1, camera_id=1, label="aberto", snapshot="a.jpg"))
+        s.commit()
+    monkeypatch.setattr(status, "_disk", lambda: {"total": 1, "used": 1, "free": 0, "percent": 78.0})
+    with respx.mock:
+        respx.get(STREAMS_URL).mock(
+            return_value=httpx.Response(200, json={"portao": {"producers": [{"id": 1}]}})
+        )
+        body = client.get("/api/status/overview", headers=auth_headers).json()
+    assert body["cameras"] == [{"name": "portao", "online": True}]
+    assert body["events_today"] == 1
+    assert body["disk_percent"] == 78.0
+
+
+def test_overview_disk_none(client, auth_headers, monkeypatch):
+    monkeypatch.setattr(status, "_disk", lambda: None)
+    with respx.mock:
+        respx.get(STREAMS_URL).mock(side_effect=httpx.ConnectError("fora"))
+        body = client.get("/api/status/overview", headers=auth_headers).json()
+    assert body["disk_percent"] is None and body["cameras"] == []
+
+
+def test_overview_requires_auth(client):
+    assert client.get("/api/status/overview").status_code == 401
+
+
 def test_analyze_frame_detects_detail_and_obstruction():
     bright = status.analyze_frame(_frame_jpeg(detail=True))
     assert bright["obstructed"] is False and bright["detail"] >= 8
