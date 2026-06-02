@@ -1,5 +1,21 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  Camera as CameraIcon,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Maximize,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { ptzMove, snapshotUrl, streamWsUrl } from "../lib/api";
+
+const ICON = 20;
 
 // Vídeo ao vivo via WebRTC (web component <video-stream> do go2rtc) com barra
 // de controles própria: áudio, zoom/pan digital, foto, tela cheia e — quando
@@ -104,38 +120,38 @@ export function CameraVideo({
           onClick={() => setMuted((m) => !m)}
           aria-label={muted ? "Ativar som" : "Mutar"}
         >
-          {muted ? "🔇" : "🔊"}
+          {muted ? <VolumeX size={ICON} /> : <Volume2 size={ICON} />}
         </button>
         <button type="button" onClick={() => zoomBy(0.5)} aria-label="Aproximar">
-          ➕
+          <ZoomIn size={ICON} />
         </button>
         <button type="button" onClick={() => zoomBy(-0.5)} aria-label="Afastar">
-          ➖
+          <ZoomOut size={ICON} />
         </button>
         <button
           type="button"
           onClick={() => setTalking((t) => !t)}
           aria-label={talking ? "Parar de falar" : "Falar"}
         >
-          {talking ? "🛑🎤" : "🎤"}
+          {talking ? <MicOff size={ICON} /> : <Mic size={ICON} />}
         </button>
         <button type="button" onClick={snapshot} aria-label="Tirar foto">
-          📷
+          <CameraIcon size={ICON} />
         </button>
         <button type="button" onClick={toggleFullscreen} aria-label="Tela cheia">
-          ⛶
+          <Maximize size={ICON} />
         </button>
       </div>
       {ptz && (
         <div className="ptz-pad">
-          <button type="button" aria-label="Cima" {...ptzHold(0, 0.5, 0)}>↑</button>
+          <button type="button" aria-label="Cima" {...ptzHold(0, 0.5, 0)}><ChevronUp size={ICON} /></button>
           <div className="ptz-mid">
-            <button type="button" aria-label="Esquerda" {...ptzHold(-0.5, 0, 0)}>←</button>
-            <button type="button" aria-label="Aproximar lente" {...ptzHold(0, 0, 0.5)}>🔍+</button>
-            <button type="button" aria-label="Afastar lente" {...ptzHold(0, 0, -0.5)}>🔍−</button>
-            <button type="button" aria-label="Direita" {...ptzHold(0.5, 0, 0)}>→</button>
+            <button type="button" aria-label="Esquerda" {...ptzHold(-0.5, 0, 0)}><ChevronLeft size={ICON} /></button>
+            <button type="button" aria-label="Aproximar lente" {...ptzHold(0, 0, 0.5)}><ZoomIn size={ICON} /></button>
+            <button type="button" aria-label="Afastar lente" {...ptzHold(0, 0, -0.5)}><ZoomOut size={ICON} /></button>
+            <button type="button" aria-label="Direita" {...ptzHold(0.5, 0, 0)}><ChevronRight size={ICON} /></button>
           </div>
-          <button type="button" aria-label="Baixo" {...ptzHold(0, -0.5, 0)}>↓</button>
+          <button type="button" aria-label="Baixo" {...ptzHold(0, -0.5, 0)}><ChevronDown size={ICON} /></button>
         </div>
       )}
     </div>
