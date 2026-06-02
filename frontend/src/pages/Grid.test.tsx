@@ -349,6 +349,15 @@ describe("Grid", () => {
     expect(navigate).toHaveBeenCalledWith("/resumo");
   });
 
+  it("navigates home from the menu", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+    await screen.findByText(/Nenhuma câmera/);
+    await openMenu(user);
+    await user.click(screen.getByRole("button", { name: "🏠 Início" }));
+    expect(navigate).toHaveBeenCalledWith("/");
+  });
+
   it("navigates to the family page", async () => {
     const user = userEvent.setup();
     render(<Grid />);

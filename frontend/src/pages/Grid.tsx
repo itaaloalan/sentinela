@@ -178,6 +178,7 @@ export default function Grid() {
         <h1>🛡️ Sentinela</h1>
         <span className="spacer" />
         <ActionsMenu>
+          <button className="ghost" onClick={() => nav("/")}>🏠 Início</button>
           <button className="ghost" onClick={() => setShowForm((s) => !s)}>➕ Adicionar câmera</button>
           <button className="ghost" onClick={() => nav("/treinos")}>🧠 Treinos</button>
           <button className="ghost" onClick={() => nav("/eventos")}>🔔 Eventos</button>

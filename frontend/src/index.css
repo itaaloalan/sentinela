@@ -161,6 +161,15 @@ main { padding: 1rem; max-width: 1100px; margin: 0 auto; }
 .cam-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.55rem 0.7rem; font-size: 0.85rem; color: var(--muted); flex-wrap: wrap; }
 .cam-foot button { width: auto; margin: 0; padding: 0.25rem 0.6rem; font-size: 0.8rem; }
 
+/* tela inicial — Casa Segura */
+.overview-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1rem; }
+.stat.big strong { font-size: 2.2rem; }
+.overview-last { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; margin-bottom: 1rem; }
+.ai-resumo { background: linear-gradient(135deg, rgba(37,99,235,0.12), rgba(124,58,237,0.12)); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1.2rem; }
+.ai-resumo h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.ai-resumo p { margin: 0; line-height: 1.6; }
+.see-cameras { width: 100%; margin: 0; padding: 0.9rem; font-size: 1.05rem; font-weight: 700; }
+
 /* dashboard superior (estatísticas da casa) */
 .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: 0.7rem; margin-bottom: 1rem; }
 .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 0.15rem; }

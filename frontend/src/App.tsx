@@ -9,6 +9,7 @@ import Health from "./pages/Health";
 import Summary from "./pages/Summary";
 import Vigilante from "./pages/Vigilante";
 import Family from "./pages/Family";
+import Overview from "./pages/Overview";
 import { SystemStatus } from "./components/SystemStatus";
 import { AccessShare } from "./components/AccessShare";
 
@@ -29,6 +30,14 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route
         path="/"
+        element={
+          <Protected>
+            <Overview />
+          </Protected>
+        }
+      />
+      <Route
+        path="/cameras"
         element={
           <Protected>
             <Grid />

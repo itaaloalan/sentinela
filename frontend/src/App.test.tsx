@@ -37,7 +37,10 @@ vi.mock("./lib/api", () => ({
   getSystemStatus: vi.fn().mockResolvedValue({ backend: true, go2rtc: true, ai: true }),
   getAccessInfo: vi.fn(),
   getHealth: vi.fn(),
-  getDaySummary: vi.fn(),
+  getDaySummary: vi.fn().mockResolvedValue({
+    date: "", total: 0, by_camera: [], by_label: [],
+    first_at: null, last_at: null, busiest_hour: null, text: "x",
+  }),
   askSummary: vi.fn(),
   getVigilanteConfig: vi.fn().mockResolvedValue({ enabled: false }),
   listObservations: vi.fn().mockResolvedValue([]),
@@ -70,16 +73,22 @@ describe("App routing", () => {
     expect(screen.getByPlaceholderText("usuário")).toBeInTheDocument();
   });
 
-  it("renders the grid when logged in", async () => {
+  it("renders the overview home when logged in", async () => {
     state.loggedIn = true;
     renderAt("/");
+    expect(await screen.findByRole("heading", { name: /Casa Segura/ })).toBeInTheDocument();
+  });
+
+  it("renders the camera grid on /cameras", async () => {
+    state.loggedIn = true;
+    renderAt("/cameras");
     expect(await screen.findByRole("button", { name: "Menu de ações" })).toBeInTheDocument();
   });
 
   it("redirects unknown routes home", async () => {
     state.loggedIn = true;
     renderAt("/rota-inexistente");
-    expect(await screen.findByRole("button", { name: "Menu de ações" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Casa Segura/ })).toBeInTheDocument();
   });
 
   it("renders the training page on /treinos when logged in", async () => {
