@@ -5,6 +5,7 @@
   temperatura, câmeras online/offline e logs por serviço ("o que está
   acontecendo"). O monitor de IA faz heartbeat aqui a cada ciclo.
 """
+import asyncio
 import datetime as dt
 import io
 import shutil
@@ -114,24 +115,41 @@ def analyze_frame(jpeg: bytes) -> dict:
     }
 
 
+# Teto por câmera na análise de obstrução: câmera com keyframe raro/travada
+# não pode segurar a página de saúde (já houve 21s+ com grabs em série).
+_FRAME_BUDGET_SECONDS = 3.5
+
+
+async def _probe_camera(name: str, online: bool) -> dict:
+    """Status de uma câmera; frame com teto curto → obstrução fica None se demorar."""
+    entry = {"name": name, "online": online, "obstructed": None, "brightness": None}
+    if not online:
+        return entry
+    try:
+        jpeg = await asyncio.wait_for(
+            grab_frame(name, timeout=_FRAME_BUDGET_SECONDS),
+            timeout=_FRAME_BUDGET_SECONDS + 0.5,
+        )
+        if jpeg:
+            a = analyze_frame(jpeg)
+            entry["obstructed"] = a["obstructed"]
+            entry["brightness"] = a["brightness"]
+    except (httpx.HTTPError, OSError, asyncio.TimeoutError):
+        pass  # frame indisponível/lento/ilegível → obstrução indeterminada
+    return entry
+
+
 async def _camera_status(streams: dict, session: Session) -> list[dict]:
-    """Cada câmera + online (produtor no go2rtc) + obstrução (análise do frame)."""
-    out = []
-    for cam in session.exec(select(Camera)).all():
-        info = streams.get(cam.name)
-        online = bool(info and info.get("producers"))
-        entry = {"name": cam.name, "online": online, "obstructed": None, "brightness": None}
-        if online:
-            try:
-                jpeg = await grab_frame(cam.name)
-                if jpeg:
-                    a = analyze_frame(jpeg)
-                    entry["obstructed"] = a["obstructed"]
-                    entry["brightness"] = a["brightness"]
-            except (httpx.HTTPError, OSError):
-                pass  # frame indisponível/ilegível → deixa obstrução indeterminada
-        out.append(entry)
-    return out
+    """Cada câmera + online (produtor no go2rtc) + obstrução — frames em PARALELO."""
+    cams = session.exec(select(Camera)).all()
+    return list(
+        await asyncio.gather(
+            *(
+                _probe_camera(cam.name, bool((streams.get(cam.name) or {}).get("producers")))
+                for cam in cams
+            )
+        )
+    )
 
 
 async def _internet_ok() -> bool:
@@ -188,15 +206,18 @@ async def health(
 ):
     raw = settings_store.ai_heartbeat()
     last_seen = (_now() - float(raw)) if raw else None
-    streams = await _go2rtc_streams()
+    # chamadas independentes em paralelo (antes era tudo em série → 20s+)
+    streams, log, internet = await asyncio.gather(
+        _go2rtc_streams(), _go2rtc_log(), _internet_ok()
+    )
     return {
         "events_today": _events_today(session),
         "disk": _disk(),
         "temperature_c": _cpu_temp(),
-        "internet": await _internet_ok(),
+        "internet": internet,
         "storage_ok": _storage_ok(),
         "cameras": await _camera_status(streams or {}, session),
-        "go2rtc": {"reachable": streams is not None, "log": await _go2rtc_log()},
+        "go2rtc": {"reachable": streams is not None, "log": log},
         "ai": {"online": _ai_ok(), "last_seen_seconds": last_seen},
         "backend": {"log": applog.recent()},
     }

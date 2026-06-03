@@ -19,11 +19,15 @@ from .config import settings
 log = logging.getLogger("sentinela.go2rtc")
 
 
-async def grab_frame(name: str) -> bytes:
-    """Pega um snapshot JPEG da câmera via go2rtc. Levanta httpx.HTTPError."""
-    url = f"{settings.go2rtc_url}/api/frame.jpeg?src={name}"
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(url)
+async def grab_frame(name: str, timeout: float = 10) -> bytes:
+    """Pega um snapshot JPEG da câmera via go2rtc. Levanta httpx.HTTPError.
+
+    `params` (e não f-string) p/ encodar nomes com espaço/acento corretamente.
+    `timeout` curto em quem não pode esperar (ex.: página de saúde).
+    """
+    url = f"{settings.go2rtc_url}/api/frame.jpeg"
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.get(url, params={"src": name})
     resp.raise_for_status()
     return resp.content
 

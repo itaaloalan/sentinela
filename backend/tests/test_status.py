@@ -162,7 +162,7 @@ async def test_camera_status_obstructed_when_frame_dark(monkeypatch):
         s.add(Camera(name="tapada", source="rtsp://x", kind="rtsp"))
         s.commit()
 
-    async def fake_grab(_name):
+    async def fake_grab(_name, **_kw):
         return _frame_jpeg(detail=False)
 
     monkeypatch.setattr(status, "grab_frame", fake_grab)
@@ -176,7 +176,7 @@ async def test_camera_status_grab_failure_leaves_indeterminate(monkeypatch):
         s.add(Camera(name="portao", source="rtsp://x", kind="rtsp"))
         s.commit()
 
-    async def boom(_name):
+    async def boom(_name, **_kw):
         raise httpx.ConnectError("fora")
 
     monkeypatch.setattr(status, "grab_frame", boom)
@@ -185,12 +185,29 @@ async def test_camera_status_grab_failure_leaves_indeterminate(monkeypatch):
     assert out[0]["obstructed"] is None
 
 
+async def test_camera_status_slow_frame_times_out(monkeypatch):
+    """Câmera com frame lento não pode segurar a saúde: teto → indeterminado."""
+    import asyncio
+
+    with Session(database.engine) as s:
+        s.add(Camera(name="lenta", source="rtsp://x", kind="rtsp"))
+        s.commit()
+
+    async def slow(_name, **_kw):
+        raise asyncio.TimeoutError()  # equivalente ao wait_for estourar o teto
+
+    monkeypatch.setattr(status, "grab_frame", slow)
+    with Session(database.engine) as s:
+        out = await status._camera_status({"lenta": {"producers": [{"id": 1}]}}, s)
+    assert out[0]["obstructed"] is None and out[0]["online"] is True
+
+
 async def test_camera_status_empty_frame_leaves_indeterminate(monkeypatch):
     with Session(database.engine) as s:
         s.add(Camera(name="portao", source="rtsp://x", kind="rtsp"))
         s.commit()
 
-    async def empty(_name):
+    async def empty(_name, **_kw):
         return b""
 
     monkeypatch.setattr(status, "grab_frame", empty)

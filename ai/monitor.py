@@ -122,7 +122,7 @@ def vigilante_cycle(client, token: str, name_by_id: dict) -> None:
         return
     for camera_id, name in name_by_id.items():
         try:
-            jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg?src={name}").content
+            jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg", params={"src": name}).content
             if not jpeg:
                 continue
             text, objects = describe(jpeg, None)
@@ -157,7 +157,8 @@ def _process_model(client, token, model, name_by_id, debouncers) -> None:
         return
     if not _trained(model["id"]):
         return  # ativo mas ainda sem treino concluído — ignora sem poluir o log
-    jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg?src={name}").content
+    # params= encoda nomes com espaço/acento (f-string quebrava "Frente da casa")
+    jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg", params={"src": name}).content
     if not jpeg:
         raise RuntimeError(
             f"go2rtc não entregou frame de '{name}' — câmera offline/inacessível "
