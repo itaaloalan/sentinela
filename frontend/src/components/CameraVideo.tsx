@@ -24,10 +24,13 @@ export function CameraVideo({
   id,
   name,
   ptz = false,
+  onPlaying,
 }: {
   id: number;
   name: string;
   ptz?: boolean;
+  /** chamado quando o vídeo realmente começa a tocar (1º frame). */
+  onPlaying?: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -63,6 +66,16 @@ export function CameraVideo({
     // React 18 não converte className→class em custom elements; aplica direto.
     (ref.current as HTMLElement).classList.toggle("zoomed", zoom > 1);
   }, [zoom]);
+
+  useEffect(() => {
+    // 'playing' não borbulha, mas a fase de captura passa pelo wrapper —
+    // assim sabemos quando o <video> interno (criado pelo componente) tocou.
+    if (!onPlaying) return;
+    const wrap = wrapRef.current as HTMLDivElement;
+    const handler = () => onPlaying();
+    wrap.addEventListener("playing", handler, true);
+    return () => wrap.removeEventListener("playing", handler, true);
+  }, [onPlaying]);
 
   useEffect(() => {
     const video = (ref.current as HTMLElement).querySelector("video") as HTMLVideoElement | null;

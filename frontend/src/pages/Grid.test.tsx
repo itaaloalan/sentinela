@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Grid from "./Grid";
 
@@ -407,7 +407,10 @@ describe("Grid", () => {
     api.listEvents.mockResolvedValue([
       { id: 1, model_id: 1, camera_id: 1, label: "aberto", snapshot: "s", created_at: fiveMinAgo },
     ]);
-    render(<Grid />);
+    const { container } = render(<Grid />);
+    // produtor ativo no go2rtc mas player ainda sem tocar → Conectando
+    expect(await screen.findByText("🟡 Conectando")).toBeInTheDocument();
+    fireEvent(container.querySelector("video-stream")!, new Event("playing"));
     expect(await screen.findByText("🟢 Online")).toBeInTheDocument();
     expect(screen.getByText("1/1")).toBeInTheDocument();
     expect(screen.getByText("17")).toBeInTheDocument();

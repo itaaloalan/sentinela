@@ -52,6 +52,7 @@ export default function Grid() {
   const [mode, setMode] = useState<"grade" | "monitor">("grade");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuId, setMenuId] = useState<number | null>(null);
+  const [playing, setPlaying] = useState<Set<number>>(new Set());
   const nav = useNavigate();
 
   const refresh = useCallback(() => {
@@ -67,12 +68,23 @@ export default function Grid() {
     listEvents().then(setEvents).catch(() => {});
   }, [refresh]);
 
-  function statusOf(name: string) {
+  function markPlaying(id: number) {
+    setPlaying((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }
+
+  function statusOf(cam: Camera) {
+    // Online de verdade = go2rtc tem a câmera E o player está tocando aqui;
+    // produtor ativo com player parado é "Conectando" (era enganoso antes).
     if (!overview) return { cls: "reconnecting", dot: "🟡", label: "Conectando" };
-    const online = overview.cameras.find((c) => c.name === name)?.online;
-    return online
+    const online = overview.cameras.find((c) => c.name === cam.name)?.online;
+    if (!online) return { cls: "offline", dot: "🔴", label: "Offline" };
+    return playing.has(cam.id)
       ? { cls: "online", dot: "🟢", label: "Online" }
-      : { cls: "offline", dot: "🔴", label: "Offline" };
+      : { cls: "reconnecting", dot: "🟡", label: "Conectando" };
   }
 
   function lastEventFor(cameraId: number): string {
@@ -308,7 +320,7 @@ export default function Grid() {
         {mode === "grade" && (
           <div className="cam-grid">
             {cameras.map((cam) => {
-              const st = statusOf(cam.name);
+              const st = statusOf(cam);
               return (
                 <div className="cam-card" key={cam.id}>
                   <div className="cam-head">
@@ -329,7 +341,12 @@ export default function Grid() {
                     )}
                   </div>
                   <div className="video">
-                    <CameraVideo id={cam.id} name={cam.name} ptz={cam.ptz_enabled} />
+                    <CameraVideo
+                      id={cam.id}
+                      name={cam.name}
+                      ptz={cam.ptz_enabled}
+                      onPlaying={() => markPlaying(cam.id)}
+                    />
                   </div>
                   <div className="cam-foot">
                     <span>📅 Último evento: {lastEventFor(cam.id)}</span>

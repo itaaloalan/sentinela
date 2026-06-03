@@ -97,6 +97,17 @@ describe("CameraVideo", () => {
     expect(stream.style.transform).toBe("scale(1) translate(0px, 0px)");
   });
 
+  it("notifies when the stream actually starts playing", () => {
+    const onPlaying = vi.fn();
+    const { container } = render(
+      <CameraVideo id={1} name="portao" onPlaying={onPlaying} />,
+    );
+    const video = document.createElement("video");
+    container.querySelector("video-stream")!.appendChild(video);
+    fireEvent(video, new Event("playing")); // captura no wrapper pega o evento
+    expect(onPlaying).toHaveBeenCalledOnce();
+  });
+
   it("toggles the controls with a simple tap (mobile)", () => {
     const { container } = render(<CameraVideo id={1} name="portao" />);
     const stream = container.querySelector("video-stream") as HTMLElement;
