@@ -470,3 +470,133 @@ def test_vigilante_config_error_returns_silently():
     )
     with httpx.Client() as client:
         monitor.vigilante_cycle(client, "tok", {1: "portao"})  # não levanta
+
+
+# ---- zero-shot por descrições (CLIP) ----
+
+
+class _ZsVec:
+    def __init__(self, vals):
+        self.vals = vals
+
+    def argmax(self):
+        return self.vals.index(max(self.vals))
+
+    def __getitem__(self, i):
+        return self.vals[i]
+
+
+class _ZsLogits:
+    def __init__(self, vals):
+        self.vals = vals
+
+    def softmax(self, dim):
+        return [_ZsVec(self.vals)]
+
+
+class _ZsFeat:
+    def __init__(self, vals):
+        self.vals = vals
+
+    def norm(self, dim, keepdim):
+        return 1
+
+    def __truediv__(self, other):
+        return self
+
+    @property
+    def T(self):
+        return self
+
+    def __rmul__(self, other):
+        return self
+
+    def __matmul__(self, other):
+        return _ZsLogits(self.vals)
+
+
+def _install_fake_clip(monkeypatch, image_vals=(0.3, 0.7), builds=None):
+    import contextlib
+
+    class FakeClip:
+        def eval(self):
+            pass
+
+        def encode_text(self, tokens):
+            return _ZsFeat([0.0] * len(tokens))
+
+        def encode_image(self, tensor):
+            return _ZsFeat(list(image_vals))
+
+    def create(name, pretrained):
+        if builds is not None:
+            builds["n"] += 1
+
+        class _Pre:
+            def __call__(self, img):
+                return self
+
+            def unsqueeze(self, dim):
+                return self
+
+        return FakeClip(), None, _Pre()
+
+    open_clip = types.ModuleType("open_clip")
+    open_clip.create_model_and_transforms = create
+    open_clip.get_tokenizer = lambda name: (lambda texts: texts)
+    monkeypatch.setitem(sys.modules, "open_clip", open_clip)
+
+    torch = types.ModuleType("torch")
+    torch.no_grad = contextlib.nullcontext
+    monkeypatch.setitem(sys.modules, "torch", torch)
+    monkeypatch.setattr(monitor, "_clip", None)
+    monitor._text_feats.clear()
+
+
+def test_zeroshot_picks_best_description(monkeypatch):
+    _install_fake_clip(monkeypatch, image_vals=(0.3, 0.7))
+    label, conf = monitor.zeroshot(
+        _jpeg(), None, {"seco": "chão seco", "agua": "chão com água"}
+    )
+    assert (label, conf) == ("agua", 0.7)
+
+
+def test_zeroshot_with_crop_and_cache(monkeypatch):
+    builds = {"n": 0}
+    _install_fake_clip(monkeypatch, image_vals=(0.9, 0.1), builds=builds)
+    crop = {"x1": 0, "y1": 0, "x2": 10, "y2": 10}
+    descr = {"aberto": "portão aberto", "fechado": "portão fechado"}
+    label, _ = monitor.zeroshot(_jpeg(), crop, descr)
+    assert label == "aberto"
+    monitor.zeroshot(_jpeg(), crop, descr)  # cache de CLIP + features de texto
+    assert builds["n"] == 1
+
+
+@respx.mock
+def test_cycle_zero_shot_fires_without_training(monkeypatch):
+    """Modelo sem treino mas com descrições → classifica via zero-shot e dispara."""
+    monkeypatch.setattr(monitor, "DEBOUNCE", 0)
+    monkeypatch.setattr(monitor, "_trained", lambda mid: False)
+    monkeypatch.setattr(monitor, "zeroshot", lambda j, c, d: ("aberto", 0.95))
+    respx.get(f"{monitor.BACKEND_URL}/api/models").mock(
+        return_value=httpx.Response(200, json=[{
+            "id": 7, "camera_id": 1, "active": True, "crop": None,
+            "descriptions": {"aberto": "portão aberto", "fechado": "portão fechado"},
+            "alert_label": "aberto", "debounce_seconds": 0,
+        }])
+    )
+    respx.get(f"{monitor.BACKEND_URL}/api/cameras").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "name": "portao"}])
+    )
+    respx.get(f"{monitor.GO2RTC_URL}/api/frame.jpeg").mock(
+        return_value=httpx.Response(200, content=b"jpeg")
+    )
+    respx.get(f"{monitor.BACKEND_URL}/api/observations/config").mock(
+        return_value=httpx.Response(200, json={"enabled": False})
+    )
+    events = respx.post(f"{monitor.BACKEND_URL}/api/events").mock(
+        return_value=httpx.Response(201, json={"id": 1})
+    )
+    with httpx.Client() as client:
+        monitor.cycle(client, "tok", {})
+    assert events.called

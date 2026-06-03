@@ -55,6 +55,57 @@ def _trained(model_id: int) -> bool:
     return os.path.exists(weights_path(model_id))
 
 
+CLIP_MODEL = os.environ.get("CLIP_MODEL", "xlm-roberta-base-ViT-B-32")
+CLIP_PRETRAINED = os.environ.get("CLIP_PRETRAINED", "laion5b_s13b_b90k")
+_clip = None
+_text_feats: dict[tuple, object] = {}
+
+
+def _load_clip():
+    """Carrega (1x) o CLIP multilíngue do zero-shot. ~1,1GB no primeiro uso."""
+    global _clip
+    if _clip is None:
+        import open_clip  # lazy/pesado
+
+        model, _, preprocess = open_clip.create_model_and_transforms(
+            CLIP_MODEL, pretrained=CLIP_PRETRAINED
+        )
+        tokenizer = open_clip.get_tokenizer(CLIP_MODEL)
+        model.eval()
+        _clip = (model, preprocess, tokenizer)
+    return _clip
+
+
+def zeroshot(jpeg: bytes, crop: dict | None, descriptions: dict[str, str]) -> tuple[str, float]:
+    """Classifica o frame contra as DESCRIÇÕES das classes (CLIP zero-shot).
+
+    Permite monitorar um modelo sem treino: o texto de cada classe vira o
+    classificador. Mesma lógica de app/zeroshot.py do backend (serviço à parte).
+    """
+    from PIL import Image  # lazy
+
+    img = Image.open(io.BytesIO(jpeg)).convert("RGB")
+    if crop is not None:
+        img = img.crop((crop["x1"], crop["y1"], crop["x2"], crop["y2"]))
+
+    import torch  # lazy
+
+    labels = list(descriptions.keys())
+    texts = tuple(descriptions[label] for label in labels)
+    model, preprocess, tokenizer = _load_clip()
+    with torch.no_grad():
+        feats = _text_feats.get(texts)
+        if feats is None:
+            feats = model.encode_text(tokenizer(list(texts)))
+            feats = feats / feats.norm(dim=-1, keepdim=True)
+            _text_feats[texts] = feats
+        image_feat = model.encode_image(preprocess(img).unsqueeze(0))
+        image_feat = image_feat / image_feat.norm(dim=-1, keepdim=True)
+        probs = (100.0 * image_feat @ feats.T).softmax(dim=-1)[0]
+    best = int(probs.argmax())
+    return labels[best], float(probs[best])
+
+
 def classify(weights: str, jpeg: bytes, crop: dict | None) -> tuple[str, float]:
     from PIL import Image  # lazy
 
@@ -155,8 +206,10 @@ def _process_model(client, token, model, name_by_id, debouncers) -> None:
     name = name_by_id.get(model["camera_id"])
     if name is None:
         return
-    if not _trained(model["id"]):
-        return  # ativo mas ainda sem treino concluído — ignora sem poluir o log
+    trained = _trained(model["id"])
+    descriptions = model.get("descriptions") or {}
+    if not trained and len(descriptions) < 2:
+        return  # sem treino E sem descrições — nada com que classificar
     # params= encoda nomes com espaço/acento (f-string quebrava "Frente da casa")
     jpeg = client.get(f"{GO2RTC_URL}/api/frame.jpeg", params={"src": name}).content
     if not jpeg:
@@ -164,7 +217,11 @@ def _process_model(client, token, model, name_by_id, debouncers) -> None:
             f"go2rtc não entregou frame de '{name}' — câmera offline/inacessível "
             "(VPN sequestrando a rota da LAN?)"
         )
-    label, conf = classify(weights_path(model["id"]), jpeg, model["crop"])
+    if trained:
+        label, conf = classify(weights_path(model["id"]), jpeg, model["crop"])
+    else:
+        # zero-shot: as descrições das classes são o classificador
+        label, conf = zeroshot(jpeg, model["crop"], descriptions)
     if conf < THRESHOLD:
         return
     # config por modelo (vinda do backend); cai no env se ausente (modelo antigo)

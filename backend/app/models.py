@@ -32,6 +32,7 @@ class ModelIn(BaseModel):
 class ModelPatch(BaseModel):
     name: str | None = None
     classes: list[str] | None = None
+    descriptions: dict[str, str] | None = None  # label → descrição (zero-shot)
     alert_label: str | None = None
     debounce_seconds: int | None = Field(default=None, ge=0, le=3600)
 
@@ -47,6 +48,10 @@ def _classes(rec: AIModel) -> list[str]:
     return rec.classes_csv.split(",")
 
 
+def _descriptions(rec: AIModel) -> dict[str, str]:
+    return json.loads(rec.descriptions_json) if rec.descriptions_json else {}
+
+
 def _serialize(rec: AIModel) -> dict:
     classes = _classes(rec)
     return {
@@ -54,6 +59,7 @@ def _serialize(rec: AIModel) -> dict:
         "camera_id": rec.camera_id,
         "name": rec.name,
         "classes": classes,
+        "descriptions": _descriptions(rec),
         "alert_label": rec.alert_label or classes[0],
         "debounce_seconds": rec.debounce_seconds
         if rec.debounce_seconds is not None
@@ -188,6 +194,14 @@ def update_model(
         rec.classes_csv = ",".join(new)
         if rec.alert_label not in new:
             rec.alert_label = new[0]
+    if patch.descriptions is not None:
+        # guarda só descrições de classes existentes e não vazias
+        valid = {
+            label: text.strip()
+            for label, text in patch.descriptions.items()
+            if label in _classes(rec) and text.strip()
+        }
+        rec.descriptions_json = json.dumps(valid) if valid else None
     if patch.alert_label is not None:
         if patch.alert_label not in _classes(rec):
             raise HTTPException(400, f"alert_label deve ser uma de {_classes(rec)}")

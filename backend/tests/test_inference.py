@@ -60,7 +60,7 @@ async def test_classify_live_without_crop(monkeypatch, tmp_path):
     with respx.mock:
         respx.get(FRAME_URL).mock(return_value=httpx.Response(200, content=_jpeg()))
         out = await inference.classify_live(_model(1), Camera(name="portao", source="x"), None)
-    assert out == {"label": "aberto", "confidence": 0.88}
+    assert out == {"label": "aberto", "confidence": 0.88, "engine": "treino"}
 
 
 async def test_classify_live_with_crop(monkeypatch, tmp_path):
@@ -74,10 +74,29 @@ async def test_classify_live_with_crop(monkeypatch, tmp_path):
     assert out["label"] == "aberto"
 
 
-async def test_classify_live_not_trained(monkeypatch, tmp_path):
+async def test_classify_live_without_training_or_descriptions(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
-    with pytest.raises(RuntimeError, match="treinado"):
+    with pytest.raises(RuntimeError, match="sem treino e sem descrições"):
         await inference.classify_live(_model(1), Camera(name="portao", source="x"), None)
+
+
+async def test_classify_live_zero_shot_via_descriptions(monkeypatch, tmp_path):
+    """Sem pesos mas com descrições → classifica via CLIP zero-shot."""
+    monkeypatch.setattr(settings, "ai_data_dir", str(tmp_path))
+    m = _model(1)
+    m.descriptions_json = '{"aberto": "portão de metal aberto", "fechado": "portão fechado"}'
+    seen = {}
+
+    def fake_zero(jpeg, crop, descriptions):
+        seen["descriptions"] = descriptions
+        return "aberto", 0.77
+
+    monkeypatch.setattr(inference.zeroshot, "classify_text", fake_zero)
+    with respx.mock:
+        respx.get(FRAME_URL).mock(return_value=httpx.Response(200, content=_jpeg()))
+        out = await inference.classify_live(m, Camera(name="portao", source="x"), None)
+    assert out == {"label": "aberto", "confidence": 0.77, "engine": "descricoes"}
+    assert seen["descriptions"]["fechado"] == "portão fechado"
 
 
 async def test_classify_live_caches_model_and_reloads_on_retrain(monkeypatch, tmp_path):

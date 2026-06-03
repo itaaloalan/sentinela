@@ -1,11 +1,14 @@
-"""Inferência de teste: classifica um frame ao vivo com o modelo treinado.
+"""Inferência de teste: classifica um frame ao vivo.
 
-Usa os pesos salvos pelo treino (app/training.py) e aplica o crop do modelo.
-Imports pesados (ultralytics, PIL) são lazy. Chamado por POST /api/models/{id}/test.
+Ordem dos motores: pesos do treino (app/training.py) se existirem; senão
+zero-shot pelas descrições de classe (app/zeroshot.py). Aplica o crop do
+modelo. Imports pesados são lazy. Chamado por POST /api/models/{id}/test.
 """
 import io
+import json
 from pathlib import Path
 
+from . import zeroshot
 from .config import settings
 from .db_models import AIModel, Camera
 from .go2rtc import grab_frame
@@ -34,10 +37,19 @@ def _load_model(weights: Path):
 
 
 async def classify_live(model: AIModel, camera: Camera, crop: dict | None) -> dict:
-    """Pega um frame ao vivo, aplica o crop e classifica. label + confidence."""
+    """Pega um frame ao vivo, aplica o crop e classifica. label + confidence + engine.
+
+    `engine`: "treino" (pesos YOLO) ou "descricoes" (zero-shot CLIP).
+    """
     weights = weights_path(model.id)
-    if not weights.is_file():
-        raise RuntimeError("Modelo ainda não treinado")
+    descriptions: dict[str, str] = (
+        json.loads(model.descriptions_json) if model.descriptions_json else {}
+    )
+    if not weights.is_file() and len(descriptions) < 2:
+        raise RuntimeError(
+            "Modelo sem treino e sem descrições — treine com frames OU descreva "
+            "ao menos 2 classes na tela de treino"
+        )
 
     jpeg = await grab_frame(camera.name)
     if not jpeg:
@@ -45,6 +57,10 @@ async def classify_live(model: AIModel, camera: Camera, crop: dict | None) -> di
             f"go2rtc não entregou frame de '{camera.name}' — câmera offline ou "
             "sem stream (RTSP timeout / VPN na rota da LAN?)"
         )
+
+    if not weights.is_file():
+        label, confidence = zeroshot.classify_text(jpeg, crop, descriptions)
+        return {"label": label, "confidence": confidence, "engine": "descricoes"}
 
     from PIL import Image  # lazy
 
@@ -54,4 +70,8 @@ async def classify_live(model: AIModel, camera: Camera, crop: dict | None) -> di
 
     result = _load_model(weights)(img)[0]
     probs = result.probs
-    return {"label": result.names[probs.top1], "confidence": float(probs.top1conf)}
+    return {
+        "label": result.names[probs.top1],
+        "confidence": float(probs.top1conf),
+        "engine": "treino",
+    }

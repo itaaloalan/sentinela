@@ -9,6 +9,7 @@ sqlmodel>=0.0.22          # persistência (Fase 2): câmeras + usuários
 pwdlib[bcrypt]>=0.2.1     # hash de senha (Fase 2)
 onvif-zeep>=0.2.12        # PTZ via ONVIF (import lazy em app/ptz.py)
 pillow>=11.0              # crop do frame na inferência de teste (app/inference.py)
+open_clip_torch>=2.24     # zero-shot por descrições de classe (app/zeroshot.py)
 
 # --- dev / testes (gate de 100% de cobertura) ---
 pytest>=8.3

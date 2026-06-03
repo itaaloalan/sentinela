@@ -45,6 +45,7 @@ class AIModel(SQLModel, table=True):
     camera_id: int
     name: str = "portao"
     classes_csv: str = "aberto,fechado"
+    descriptions_json: str | None = None  # JSON label→descrição (zero-shot CLIP)
     alert_label: str | None = None    # classe que dispara o alerta (default: 1ª)
     debounce_seconds: int | None = None  # tempo contínuo no alert_label p/ disparar
     crop_json: str | None = None      # JSON {x1,y1,x2,y2} ou None

@@ -159,6 +159,7 @@ export interface AIModel {
   camera_id: number;
   name: string;
   classes: string[];
+  descriptions: Record<string, string>;
   alert_label: string;
   debounce_seconds: number;
   crop: Crop | null;
@@ -172,6 +173,7 @@ export interface AIModel {
 export interface ModelPatch {
   name?: string;
   classes?: string[];
+  descriptions?: Record<string, string>;
   alert_label?: string;
   debounce_seconds?: number;
 }
@@ -263,6 +265,7 @@ export async function activateModel(id: number, active: boolean): Promise<{ acti
 export interface TestResult {
   label: string | null;
   confidence: number | null;
+  engine?: string; // "treino" | "descricoes"
 }
 
 export async function testModel(id: number): Promise<TestResult> {

@@ -42,6 +42,7 @@ export default function Training() {
   const [newClasses, setNewClasses] = useState("aberto, fechado");
   const [nameEdit, setNameEdit] = useState("");
   const [classesEdit, setClassesEdit] = useState("");
+  const [descrEdit, setDescrEdit] = useState<Record<string, string>>({});
   const [alertLabel, setAlertLabel] = useState("");
   const [debounce, setDebounce] = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -85,6 +86,9 @@ export default function Training() {
     ? Object.values(selected.frames).reduce((a, b) => a + b, 0)
     : 0;
   const trained = selected?.status === "pronto";
+  // com 2+ descrições dá pra testar SEM treino (zero-shot pelas descrições)
+  const canTest =
+    trained || Object.keys(selected?.descriptions ?? {}).length >= 2;
   const training = selected?.status === "treinando";
 
   function loadFrames(id: number) {
@@ -95,6 +99,7 @@ export default function Training() {
     setSelectedId(model.id);
     setNameEdit(model.name);
     setClassesEdit(model.classes.join(", "));
+    setDescrEdit({ ...model.descriptions });
     setAlertLabel(model.alert_label);
     setDebounce(String(model.debounce_seconds));
     setTestResult(null);
@@ -127,6 +132,13 @@ export default function Training() {
         alert_label: alertLabel,
         debounce_seconds: Number(debounce),
       });
+      await refresh();
+    });
+  }
+
+  function onSaveDescriptions() {
+    return run(async () => {
+      await updateModel(selected!.id, { descriptions: descrEdit });
       await refresh();
     });
   }
@@ -289,6 +301,26 @@ export default function Training() {
                 frames já capturados.
               </span>
             </div>
+
+            <div className="descr-block">
+              <strong>📝 Descreva as classes (IA por texto)</strong>
+              {selected.classes.map((c) => (
+                <input
+                  key={c}
+                  aria-label={`descrição de ${c}`}
+                  placeholder={`descreva '${c}' (ex.: portão de metal fechado, visto de frente)`}
+                  value={descrEdit[c] ?? ""}
+                  onChange={(e) => setDescrEdit((d) => ({ ...d, [c]: e.target.value }))}
+                />
+              ))}
+              <AsyncButton className="ghost" onClick={onSaveDescriptions}>
+                Salvar descrições
+              </AsyncButton>
+              <span className="hint">
+                com 2+ descrições o modelo já funciona <strong>sem treino</strong> (compara a
+                imagem com o texto). Quando houver treino com frames, o treino prevalece.
+              </span>
+            </div>
             {previewName && (
               <div className="cam-card">
                 <div className="video contain">
@@ -401,6 +433,8 @@ export default function Training() {
                   {testResult.confidence !== null
                     ? ` (${Math.round(testResult.confidence * 100)}%)`
                     : ""}
+                  {testResult.engine === "descricoes" && " · via descrições"}
+                  {testResult.engine === "treino" && " · via treino"}
                 </span>
               )}
             </div>
@@ -421,11 +455,15 @@ export default function Training() {
                 </span>
               </div>
               <div className="action">
-                <AsyncButton className="ghost" disabled={!trained} onClick={onTest}>
+                <AsyncButton className="ghost" disabled={!canTest} onClick={onTest}>
                   2. Testar ao vivo
                 </AsyncButton>
                 <span className="hint">
-                  {trained ? "Classifica um frame agora" : "Treine o modelo primeiro"}
+                  {trained
+                    ? "Classifica um frame agora"
+                    : canTest
+                      ? "Sem treino: testa pelas descrições (zero-shot)"
+                      : "Treine OU descreva as classes primeiro"}
                 </span>
               </div>
               <div className="action">

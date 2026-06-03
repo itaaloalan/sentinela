@@ -53,13 +53,13 @@ vi.mock("../lib/api", () => ({
 // modelo 2: câmera inexistente (sem preview), crop null, accuracy null, inativo
 const M1 = {
   id: 1, camera_id: 1, name: "portao", classes: ["aberto", "fechado"],
-  alert_label: "aberto", debounce_seconds: 45,
+  descriptions: {}, alert_label: "aberto", debounce_seconds: 45,
   crop: { x1: 1, y1: 2, x2: 3, y2: 4 }, version: 1, accuracy: 0.9,
   active: true, status: "pronto", frames: { aberto: 2, fechado: 1 },
 };
 const M2 = {
   id: 2, camera_id: 99, name: "vazio", classes: ["aberto", "fechado"],
-  alert_label: "aberto", debounce_seconds: 45,
+  descriptions: {}, alert_label: "aberto", debounce_seconds: 45,
   crop: null, version: 0, accuracy: null, active: false, status: "novo",
   frames: { aberto: 0 },
 };
@@ -297,6 +297,45 @@ describe("Training", () => {
     await user.click(await screen.findByText(/portao · pronto/));
     await user.click(await screen.findByRole("button", { name: "2. Testar ao vivo" }));
     expect(await screen.findByText(/resultado: \?/)).toBeInTheDocument();
+  });
+
+  it("edits and saves the class descriptions (zero-shot)", async () => {
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    await user.type(screen.getByLabelText("descrição de aberto"), "portão de metal aberto");
+    await user.type(screen.getByLabelText("descrição de fechado"), "portão fechado");
+    await user.click(screen.getByRole("button", { name: "Salvar descrições" }));
+    await waitFor(() =>
+      expect(api.updateModel).toHaveBeenCalledWith(1, {
+        descriptions: { aberto: "portão de metal aberto", fechado: "portão fechado" },
+      }),
+    );
+  });
+
+  it("shows which engine answered the live test", async () => {
+    api.testModel.mockResolvedValue({ label: "aberto", confidence: 0.8, engine: "descricoes" });
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/portao · pronto/));
+    await user.click(await screen.findByRole("button", { name: "2. Testar ao vivo" }));
+    expect(await screen.findByText(/via descrições/)).toBeInTheDocument();
+    api.testModel.mockResolvedValue({ label: "aberto", confidence: 0.9, engine: "treino" });
+    await user.click(screen.getByRole("button", { name: "2. Testar ao vivo" }));
+    expect(await screen.findByText(/via treino/)).toBeInTheDocument();
+  });
+
+  it("enables the live test without training when 2+ descriptions exist", async () => {
+    const described = {
+      ...M2,
+      descriptions: { aberto: "portão aberto", fechado: "portão fechado" },
+    };
+    api.listModels.mockResolvedValue([described]);
+    const user = userEvent.setup();
+    render(<Training />);
+    await user.click(await screen.findByText(/vazio · novo/));
+    expect(screen.getByRole("button", { name: "2. Testar ao vivo" })).not.toBeDisabled();
+    expect(screen.getByText(/Sem treino: testa pelas descrições/)).toBeInTheDocument();
   });
 
   it("toggles the alert active state", async () => {

@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     ai_frame_interval_seconds: int = Field(5, validation_alias="AI_FRAME_INTERVAL_SECONDS")
     ai_open_debounce_seconds: int = Field(45, validation_alias="AI_OPEN_DEBOUNCE_SECONDS")
     ai_confidence_threshold: float = Field(0.8, validation_alias="AI_CONFIDENCE_THRESHOLD")
+    # Zero-shot por descrições (CLIP multilíngue — entende PT). ~1,1GB no 1º uso.
+    clip_model: str = Field("xlm-roberta-base-ViT-B-32", validation_alias="CLIP_MODEL")
+    clip_pretrained: str = Field("laion5b_s13b_b90k", validation_alias="CLIP_PRETRAINED")
 
 
 settings = Settings()

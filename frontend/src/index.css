@@ -435,6 +435,11 @@ button.primary:disabled { opacity: 0.5; }
 .obs-desc { font-size: 1rem; }
 .obs-time { font-size: 0.8rem; margin-top: 0.2rem; }
 
+/* descrições por classe (zero-shot) */
+.descr-block { display: flex; flex-direction: column; gap: 0.5rem; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; margin-bottom: 1rem; }
+.descr-block input { margin: 0; }
+.descr-block button { width: auto; margin: 0; align-self: flex-start; }
+
 /* barra fixa inferior-direita: status + acesso remoto */
 .topbar {
   position: fixed;

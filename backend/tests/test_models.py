@@ -165,6 +165,34 @@ def test_update_model_renames(client, auth_headers):
     assert resp.json()["name"] == "novo nome"
 
 
+def test_update_model_saves_descriptions(client, auth_headers):
+    cid = _make_camera()
+    created = _create_model(client, auth_headers, cid)
+    assert created["descriptions"] == {}  # novo modelo vem sem descrições
+    mid = created["id"]
+    resp = client.put(
+        f"/api/models/{mid}",
+        json={"descriptions": {
+            "aberto": " portão de metal aberto ",
+            "fechado": "portão fechado",
+            "inexistente": "classe que não é do modelo",
+            "vazia": "  ",
+        }},
+        headers=auth_headers,
+    )
+    assert resp.json()["descriptions"] == {
+        "aberto": "portão de metal aberto",
+        "fechado": "portão fechado",
+    }
+    # limpar (só textos vazios) → volta a {}
+    resp = client.put(
+        f"/api/models/{mid}",
+        json={"descriptions": {"aberto": "   "}},
+        headers=auth_headers,
+    )
+    assert resp.json()["descriptions"] == {}
+
+
 def test_update_model_rejects_empty_name(client, auth_headers):
     cid = _make_camera()
     mid = _create_model(client, auth_headers, cid)["id"]
