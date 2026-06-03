@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getAccessInfo, type AccessInfo } from "../lib/api";
+import { getAccessInfo, listCameras, type AccessInfo } from "../lib/api";
 
 // Botão "🔗 Acesso": abre um painel com as URLs de acesso (Tailscale / IP
 // público / local) e as credenciais. Cada endereço tem um "Copiar" que leva
@@ -29,6 +29,17 @@ export function AccessShare() {
   async function copy(key: string, text: string) {
     await navigator.clipboard.writeText(text);
     setCopied(key);
+  }
+
+  async function copyCameraUrls() {
+    setError("");
+    try {
+      const cams = await listCameras();
+      const text = cams.map((c) => `${c.name}: ${c.source}`).join("\n");
+      await copy("cams", text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao copiar as URLs");
+    }
   }
 
   function targets(data: AccessInfo): Target[] {
@@ -72,6 +83,9 @@ export function AccessShare() {
                   </li>
                 ))}
               </ul>
+              <button type="button" className="ghost copy-cams" onClick={copyCameraUrls}>
+                {copied === "cams" ? "✓ copiado" : "📷 Copiar URLs das câmeras (com senhas)"}
+              </button>
             </>
           )}
         </div>

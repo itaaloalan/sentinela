@@ -73,7 +73,9 @@ main { padding: 1rem; max-width: 1100px; margin: 0 auto; }
   z-index: 0;
 }
 .cam-video-wrap video-stream { position: relative; z-index: 1; }
-.cam-video-wrap video-stream { touch-action: none; }
+/* scroll do mobile passa pelo vídeo; só trava o gesto quando há zoom (pan) */
+.cam-video-wrap video-stream { touch-action: pan-y pinch-zoom; }
+.cam-video-wrap video-stream.zoomed { touch-action: none; }
 .cam-card .video video-stream,
 .cam-card .video video-stream video,
 .cam-card .video video {
@@ -134,6 +136,25 @@ main { padding: 1rem; max-width: 1100px; margin: 0 auto; }
   right: 10px;
   display: flex;
   gap: 0.5rem;
+}
+/* controles discretos: invisíveis até hover/foco (desktop) ou toque (mobile) */
+.cam-controls,
+.ptz-pad {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.cam-video-wrap:hover .cam-controls,
+.cam-video-wrap:focus-within .cam-controls,
+.cam-video-wrap.controls-on .cam-controls,
+.cam-video-wrap:hover .ptz-pad,
+.cam-video-wrap:focus-within .ptz-pad,
+.cam-video-wrap.controls-on .ptz-pad {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cam-controls, .ptz-pad { transition: none; }
 }
 .cam-card .label {
   display: flex;
@@ -454,6 +475,7 @@ button.primary:disabled { opacity: 0.5; }
 .access-label { color: var(--muted); font-size: 0.75rem; min-width: 4.5rem; }
 .access-url { flex: 1 1 9rem; word-break: break-all; font-size: 0.85rem; }
 .access-list button { width: auto; margin: 0; padding: 0.25rem 0.7rem; font-size: 0.8rem; }
+.copy-cams { width: 100%; margin: 0.7rem 0 0; font-size: 0.85rem; }
 
 /* guia de notificações (ntfy) */
 .notify-guide { max-width: 640px; display: flex; flex-direction: column; gap: 0.8rem; line-height: 1.5; }

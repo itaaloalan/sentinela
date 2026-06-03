@@ -32,24 +32,37 @@ export function CameraVideo({
   const ref = useRef<HTMLElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const tap = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const [muted, setMuted] = useState(true);
   const [talking, setTalking] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [showControls, setShowControls] = useState(false);
 
   useEffect(() => {
     const el = ref.current as unknown as {
       mode: string;
       media: string;
       background: boolean;
+      visibilityThreshold: number;
       src: string;
     };
     // falar exige WebRTC (MSE não envia áudio de volta) + microfone no media.
     el.mode = talking ? "webrtc" : "webrtc,mse";
-    el.media = talking ? "video,audio,microphone" : "video,audio";
+    // otimização: mutado (padrão da grade) nem pede áudio — menos banda/CPU
+    // por stream; o áudio só entra quando o usuário ativa o som ou fala.
+    el.media = talking ? "video,audio,microphone" : muted ? "video" : "video,audio";
     el.background = false;
+    // desconecta sozinho quando o card sai da viewport (IntersectionObserver
+    // nativo do componente) e quando a aba fica oculta (visibilityCheck).
+    el.visibilityThreshold = 0.05;
     el.src = streamWsUrl(name);
-  }, [name, talking]);
+  }, [name, talking, muted]);
+
+  useEffect(() => {
+    // React 18 não converte className→class em custom elements; aplica direto.
+    (ref.current as HTMLElement).classList.toggle("zoomed", zoom > 1);
+  }, [zoom]);
 
   useEffect(() => {
     const video = (ref.current as HTMLElement).querySelector("video") as HTMLVideoElement | null;
@@ -85,14 +98,25 @@ export function CameraVideo({
   }
 
   function onPointerDown(e: React.PointerEvent) {
+    tap.current = { x: e.clientX, y: e.clientY, moved: false };
     if (zoom > 1) drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
   }
   function onPointerMove(e: React.PointerEvent) {
+    // distingue toque (mostra/esconde controles) de arrasto/scroll
+    if (
+      tap.current &&
+      (Math.abs(e.clientX - tap.current.x) > 8 || Math.abs(e.clientY - tap.current.y) > 8)
+    ) {
+      tap.current.moved = true;
+    }
     if (drag.current)
       setPan({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y });
   }
   function onPointerUp() {
     drag.current = null;
+    // toque simples no vídeo alterna os controles (mobile não tem hover)
+    if (tap.current && !tap.current.moved) setShowControls((s) => !s);
+    tap.current = null;
   }
 
   // PTZ mecânico: pressiona pra mover, solta pra parar.
@@ -104,7 +128,7 @@ export function CameraVideo({
   }
 
   return (
-    <div className="cam-video-wrap" ref={wrapRef}>
+    <div className={`cam-video-wrap${showControls ? " controls-on" : ""}`} ref={wrapRef}>
       <div className="cam-loading" aria-hidden="true">🔄 conectando…</div>
       <video-stream
         ref={ref}

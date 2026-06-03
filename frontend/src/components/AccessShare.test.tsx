@@ -3,9 +3,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AccessShare } from "./AccessShare";
 
-const api = { getAccessInfo: vi.fn() };
+const api = { getAccessInfo: vi.fn(), listCameras: vi.fn() };
 vi.mock("../lib/api", () => ({
   getAccessInfo: (...a: unknown[]) => api.getAccessInfo(...a),
+  listCameras: (...a: unknown[]) => api.listCameras(...a),
 }));
 
 const FULL = {
@@ -20,6 +21,10 @@ const writeText = vi.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
   api.getAccessInfo.mockReset().mockResolvedValue(FULL);
+  api.listCameras.mockReset().mockResolvedValue([
+    { id: 1, name: "Garagem", source: "rtsp://admin:s3nh4@192.168.0.12:554/onvif1", kind: "rtsp", ptz_enabled: true },
+    { id: 2, name: "Frente", source: "rtsp://x:y@192.168.0.66:554", kind: "rtsp", ptz_enabled: false },
+  ]);
   writeText.mockClear();
   Object.defineProperty(navigator, "clipboard", {
     value: { writeText },
@@ -82,6 +87,42 @@ describe("AccessShare", () => {
     expect(screen.getByText("Local")).toBeInTheDocument();
     expect(screen.queryByText("Tailscale")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Copiar" })).toHaveLength(1);
+  });
+
+  it("copies all camera URLs (with passwords)", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    render(<AccessShare />);
+    await user.click(screen.getByRole("button", { name: "🔗 Acesso" }));
+    await screen.findByText("admin");
+    await user.click(screen.getByRole("button", { name: /Copiar URLs das câmeras/ }));
+    expect(writeText).toHaveBeenCalledWith(
+      "Garagem: rtsp://admin:s3nh4@192.168.0.12:554/onvif1\nFrente: rtsp://x:y@192.168.0.66:554",
+    );
+    expect(await screen.findByText("✓ copiado")).toBeInTheDocument();
+  });
+
+  it("shows an error when copying camera URLs fails (Error)", async () => {
+    api.listCameras.mockRejectedValue(new Error("backend fora"));
+    const user = userEvent.setup();
+    render(<AccessShare />);
+    await user.click(screen.getByRole("button", { name: "🔗 Acesso" }));
+    await screen.findByText("admin");
+    await user.click(screen.getByRole("button", { name: /Copiar URLs das câmeras/ }));
+    expect(await screen.findByText("backend fora")).toBeInTheDocument();
+  });
+
+  it("shows a generic error when copying URLs rejects with a non-Error", async () => {
+    api.listCameras.mockRejectedValue("x");
+    const user = userEvent.setup();
+    render(<AccessShare />);
+    await user.click(screen.getByRole("button", { name: "🔗 Acesso" }));
+    await screen.findByText("admin");
+    await user.click(screen.getByRole("button", { name: /Copiar URLs das câmeras/ }));
+    expect(await screen.findByText("Erro ao copiar as URLs")).toBeInTheDocument();
   });
 
   it("shows the error message when the fetch fails (Error)", async () => {

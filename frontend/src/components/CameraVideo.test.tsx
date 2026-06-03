@@ -21,9 +21,16 @@ function getStream(container: HTMLElement) {
 describe("CameraVideo", () => {
   it("connects the video-stream to the proxied go2rtc WebSocket", () => {
     const { container } = render(<CameraVideo id={1} name="portao" />);
-    const el = getStream(container);
+    const el = getStream(container) as unknown as {
+      src: string;
+      mode: string;
+      media: string;
+      visibilityThreshold: number;
+    };
     expect(el.src).toBe("ws://localhost/go2rtc/api/ws?src=portao");
     expect(el.mode).toBe("webrtc,mse");
+    expect(el.media).toBe("video"); // mutado por padrão → sem áudio no stream
+    expect(el.visibilityThreshold).toBe(0.05); // desconecta fora da viewport
   });
 
   it("shows a connecting placeholder until the stream paints", () => {
@@ -90,6 +97,50 @@ describe("CameraVideo", () => {
     expect(stream.style.transform).toBe("scale(1) translate(0px, 0px)");
   });
 
+  it("toggles the controls with a simple tap (mobile)", () => {
+    const { container } = render(<CameraVideo id={1} name="portao" />);
+    const stream = container.querySelector("video-stream") as HTMLElement;
+    const wrap = container.querySelector(".cam-video-wrap") as HTMLElement;
+    // toque com deslize mínimo (< 8px) ainda conta como toque
+    fireEvent.pointerDown(stream, { clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(stream, { clientX: 12, clientY: 12 });
+    fireEvent.pointerUp(stream);
+    expect(wrap.className).toContain("controls-on");
+    fireEvent.pointerDown(stream, { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(stream);
+    expect(wrap.className).not.toContain("controls-on");
+  });
+
+  it("does not toggle controls on a vertical scroll gesture", () => {
+    const { container } = render(<CameraVideo id={1} name="portao" />);
+    const stream = container.querySelector("video-stream") as HTMLElement;
+    const wrap = container.querySelector(".cam-video-wrap") as HTMLElement;
+    fireEvent.pointerDown(stream, { clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(stream, { clientX: 12, clientY: 60 }); // rolagem vertical
+    fireEvent.pointerUp(stream);
+    expect(wrap.className).not.toContain("controls-on");
+  });
+
+  it("ignores stray pointer events without a touch start", () => {
+    const { container } = render(<CameraVideo id={1} name="portao" />);
+    const stream = container.querySelector("video-stream") as HTMLElement;
+    const wrap = container.querySelector(".cam-video-wrap") as HTMLElement;
+    fireEvent.pointerMove(stream, { clientX: 5, clientY: 5 });
+    fireEvent.pointerUp(stream);
+    expect(wrap.className).not.toContain("controls-on");
+  });
+
+  it("marks the stream as zoomed so touch panning takes over scrolling", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<CameraVideo id={1} name="portao" />);
+    const stream = container.querySelector("video-stream") as HTMLElement;
+    expect(stream.className).not.toContain("zoomed");
+    await user.click(screen.getByRole("button", { name: "Aproximar" }));
+    expect(stream.className).toContain("zoomed");
+    await user.click(screen.getByRole("button", { name: "Afastar" }));
+    expect(stream.className).not.toContain("zoomed");
+  });
+
   it("exits fullscreen when already in fullscreen", async () => {
     Object.defineProperty(document, "fullscreenElement", {
       configurable: true,
@@ -107,12 +158,23 @@ describe("CameraVideo", () => {
     const user = userEvent.setup();
     const { container } = render(<CameraVideo id={1} name="portao" />);
     const el = getStream(container) as unknown as { media: string; mode: string };
-    expect(el.media).toBe("video,audio");
+    expect(el.media).toBe("video"); // mutado → só vídeo
     await user.click(screen.getByRole("button", { name: "Falar" }));
     expect(el.media).toBe("video,audio,microphone");
     expect(el.mode).toBe("webrtc");
     await user.click(screen.getByRole("button", { name: "Parar de falar" }));
+    expect(el.media).toBe("video");
+  });
+
+  it("requests audio in the stream only when unmuted", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<CameraVideo id={1} name="portao" />);
+    const el = getStream(container) as unknown as { media: string };
+    expect(el.media).toBe("video");
+    await user.click(screen.getByRole("button", { name: "Ativar som" }));
     expect(el.media).toBe("video,audio");
+    await user.click(screen.getByRole("button", { name: "Mutar" }));
+    expect(el.media).toBe("video");
   });
 
   it("no PTZ pad when ptz is false", () => {
