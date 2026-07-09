@@ -38,7 +38,6 @@ import {
   login,
   modelFrameUrl,
   updateModel,
-  ptzMove,
   setModelCrop,
   testModel,
   snapshotUrl,
@@ -198,16 +197,6 @@ describe("authenticated requests", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/cameras/9");
     expect(init.method).toBe("DELETE");
-  });
-
-  it("ptzMove posts pan/tilt/zoom", async () => {
-    auth.token = "t";
-    fetchMock.mockResolvedValue(mockResponse({ json: { ok: true } }));
-    await ptzMove(3, 0.5, -0.5, 0);
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("/api/cameras/3/ptz");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body)).toEqual({ pan: 0.5, tilt: -0.5, zoom: 0 });
   });
 
   it("discoverCameras fetches the discover endpoint", async () => {

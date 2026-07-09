@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Grid from "./Grid";
 
@@ -29,7 +29,6 @@ vi.mock("../lib/api", () => ({
   listEvents: (...a: unknown[]) => api.listEvents(...a),
   streamWsUrl: (name: string) => `ws://localhost/go2rtc/api/ws?src=${name}`,
   snapshotUrl: (id: number) => `/api/cameras/${id}/snapshot?token=`,
-  ptzMove: vi.fn(),
 }));
 
 const FOUND = {
@@ -396,7 +395,7 @@ describe("Grid", () => {
     { id: 2, name: "quintal", source: "rtsp://y", kind: "rtsp", ptz_enabled: false },
   ];
 
-  it("shows the stats bar, online status and last event", async () => {
+  it("shows the stats bar and online status", async () => {
     api.listCameras.mockResolvedValue(ONE);
     api.getOverview.mockResolvedValue({
       cameras: [{ name: "portao", online: true }],
@@ -416,16 +415,114 @@ describe("Grid", () => {
     expect(screen.getByText("17")).toBeInTheDocument();
     expect(screen.getByText("78%")).toBeInTheDocument();
     expect(screen.getByText("há 5 min")).toBeInTheDocument();
-    expect(screen.getByText(/Último evento:/)).toBeInTheDocument();
   });
 
-  it("opens the event history from a card", async () => {
+  it("shows how long the camera has been active and the last frame age, ticking every second", async () => {
     api.listCameras.mockResolvedValue(ONE);
+    api.getOverview.mockResolvedValue({
+      cameras: [{ name: "portao", online: true }],
+      events_today: 0,
+      disk_percent: null,
+    });
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<Grid />);
+      await act(async () => {});
+      expect(screen.getByText("— · —")).toBeInTheDocument();
+      const stream = container.querySelector("video-stream")!;
+      fireEvent(stream, new Event("playing"));
+      fireEvent(stream, new Event("timeupdate"));
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByText("Ativo há 2s · último frame há 2s")).toBeInTheDocument();
+      await act(async () => {
+        vi.advanceTimersByTime(60000);
+      });
+      expect(screen.getByText(/^Ativo há 1 min/)).toBeInTheDocument();
+      await act(async () => {
+        vi.advanceTimersByTime(3600000);
+      });
+      expect(screen.getByText(/^Ativo há 1 h/)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not reset 'active since' on a short buffering blip, but does after a real reconnect gap", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    api.getOverview.mockResolvedValue({
+      cameras: [{ name: "portao", online: true }],
+      events_today: 0,
+      disk_percent: null,
+    });
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<Grid />);
+      await act(async () => {});
+      const stream = container.querySelector("video-stream")!;
+      fireEvent(stream, new Event("playing"));
+      fireEvent(stream, new Event("timeupdate"));
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      fireEvent(stream, new Event("playing")); // soluço curto (< 15s sem frame) — não reseta
+      expect(screen.getByText(/^Ativo há 5s/)).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(20000); // sem novo frame por > 15s
+      });
+      fireEvent(stream, new Event("playing")); // reconexão de verdade — reseta
+      expect(screen.getByText(/^Ativo há 0s/)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reconnects a camera: clears its counters and remounts the player", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    api.getOverview.mockResolvedValue({
+      cameras: [{ name: "portao", online: true }],
+      events_today: 0,
+      disk_percent: null,
+    });
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<Grid />);
+      await act(async () => {});
+      const stream = container.querySelector("video-stream")!;
+      fireEvent(stream, new Event("playing"));
+      fireEvent(stream, new Event("timeupdate"));
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(screen.getByText("Ativo há 3s · último frame há 3s")).toBeInTheDocument();
+
+      await act(async () => {
+        screen.getByRole("button", { name: "Reconectar portao" }).click();
+      });
+      expect(screen.getByText("— · —")).toBeInTheDocument();
+      expect(screen.getByText("🟡 Conectando")).toBeInTheDocument();
+      expect(container.querySelector("video-stream")).not.toBe(stream); // remontado
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reconnects a camera that never played, without touching 'active since'", async () => {
+    api.listCameras.mockResolvedValue(ONE);
+    api.getOverview.mockResolvedValue({
+      cameras: [{ name: "portao", online: false }],
+      events_today: 0,
+      disk_percent: null,
+    });
     const user = userEvent.setup();
-    render(<Grid />);
+    const { container } = render(<Grid />);
     await screen.findByText("📷 portao");
-    await user.click(screen.getByRole("button", { name: "🎥 Ver histórico" }));
-    expect(navigate).toHaveBeenCalledWith("/eventos");
+    const stream = container.querySelector("video-stream")!;
+    await user.click(screen.getByRole("button", { name: "Reconectar portao" }));
+    expect(screen.getByText("— · —")).toBeInTheDocument();
+    expect(container.querySelector("video-stream")).not.toBe(stream); // remontado
   });
 
   it("shows offline status", async () => {

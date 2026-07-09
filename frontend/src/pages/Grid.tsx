@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   auth,
@@ -21,6 +21,10 @@ import { AsyncButton } from "../components/AsyncButton";
 import { ActionsMenu } from "../components/ActionsMenu";
 
 const KINDS = ["rtsp", "dvrip", "onvif"];
+// espelha o RECONNECT_TIMEOUT do video-rtc.js: um novo "playing" só reseta o
+// "ativo desde" se o último frame estiver mais velho que isso (senão foi só
+// um soluço curto de buffering, não uma reconexão de verdade).
+const RECONNECT_TIMEOUT_MS = 15000;
 
 function agoText(iso: string): string {
   const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -29,8 +33,20 @@ function agoText(iso: string): string {
   return `há ${Math.floor(min / 60)} h`;
 }
 
-function hhmm(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+function activeForText(since: number | undefined, now: number): string {
+  if (!since) return "—";
+  const sec = Math.max(0, Math.floor((now - since) / 1000));
+  if (sec < 60) return `Ativo há ${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `Ativo há ${min} min`;
+  return `Ativo há ${Math.floor(min / 60)} h`;
+}
+
+function frameAgoText(ts: number | undefined, now: number): string {
+  if (!ts) return "—";
+  const sec = Math.max(0, Math.floor((now - ts) / 1000));
+  if (sec < 60) return `último frame há ${sec}s`;
+  return `último frame há ${Math.floor(sec / 60)} min`;
 }
 
 export default function Grid() {
@@ -52,7 +68,15 @@ export default function Grid() {
   const [mode, setMode] = useState<"grade" | "monitor">("grade");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuId, setMenuId] = useState<number | null>(null);
-  const [playing, setPlaying] = useState<Set<number>>(new Set());
+  // timestamp (Date.now()) de quando cada câmera começou a tocar; some ao
+  // reconectar/perder o stream.
+  const [playingSince, setPlayingSince] = useState<Map<number, number>>(new Map());
+  // bump por câmera pra forçar remount do <CameraVideo> (botão Reconectar).
+  const [streamKey, setStreamKey] = useState<Map<number, number>>(new Map());
+  // timestamp do último frame renderizado por câmera; fica em ref (chega a
+  // 4x/s) — quem força o re-render é o tick de 1s abaixo.
+  const lastFrameRef = useRef<Map<number, number>>(new Map());
+  const [, setTick] = useState(0);
   const nav = useNavigate();
 
   const refresh = useCallback(() => {
@@ -68,12 +92,44 @@ export default function Grid() {
     listEvents().then(setEvents).catch(() => {});
   }, [refresh]);
 
+  useEffect(() => {
+    // atualiza os contadores "ativo há/último frame há" do rodapé dos cards.
+    if (mode !== "grade" || cameras.length === 0) return;
+    const t = setInterval(() => setTick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [mode, cameras.length]);
+
   function markPlaying(id: number) {
-    setPlaying((prev) => {
-      const next = new Set(prev);
-      next.add(id);
+    const now = Date.now();
+    const lastFrame = lastFrameRef.current.get(id);
+    const stale = !lastFrame || now - lastFrame > RECONNECT_TIMEOUT_MS;
+    setPlayingSince((prev) => {
+      // buffering curto (frame recente) não zera o "ativo desde"; só uma
+      // reconexão de verdade (sem frame há mais de RECONNECT_TIMEOUT_MS) reseta.
+      if (prev.has(id) && !stale) return prev;
+      const next = new Map(prev);
+      next.set(id, now);
       return next;
     });
+  }
+
+  function markFrame(id: number) {
+    lastFrameRef.current.set(id, Date.now());
+  }
+
+  function reconnect(id: number) {
+    setStreamKey((prev) => {
+      const next = new Map(prev);
+      next.set(id, (prev.get(id) ?? 0) + 1);
+      return next;
+    });
+    setPlayingSince((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+    lastFrameRef.current.delete(id);
   }
 
   function statusOf(cam: Camera) {
@@ -82,14 +138,9 @@ export default function Grid() {
     if (!overview) return { cls: "reconnecting", dot: "🟡", label: "Conectando" };
     const online = overview.cameras.find((c) => c.name === cam.name)?.online;
     if (!online) return { cls: "offline", dot: "🔴", label: "Offline" };
-    return playing.has(cam.id)
+    return playingSince.has(cam.id)
       ? { cls: "online", dot: "🟢", label: "Online" }
       : { cls: "reconnecting", dot: "🟡", label: "Conectando" };
-  }
-
-  function lastEventFor(cameraId: number): string {
-    const ev = events.find((e) => e.camera_id === cameraId);
-    return ev ? hhmm(ev.created_at) : "—";
   }
 
   function logout() {
@@ -321,6 +372,7 @@ export default function Grid() {
           <div className="cam-grid">
             {cameras.map((cam) => {
               const st = statusOf(cam);
+              const now = Date.now();
               return (
                 <div className="cam-card" key={cam.id}>
                   <div className="cam-head">
@@ -342,15 +394,23 @@ export default function Grid() {
                   </div>
                   <div className="video">
                     <CameraVideo
-                      id={cam.id}
+                      key={`${cam.id}:${streamKey.get(cam.id) ?? 0}`}
                       name={cam.name}
-                      ptz={cam.ptz_enabled}
                       onPlaying={() => markPlaying(cam.id)}
+                      onFrame={() => markFrame(cam.id)}
                     />
                   </div>
                   <div className="cam-foot">
-                    <span>📅 Último evento: {lastEventFor(cam.id)}</span>
-                    <button className="ghost" onClick={() => nav("/eventos")}>🎥 Ver histórico</button>
+                    <span>
+                      {activeForText(playingSince.get(cam.id), now)} · {frameAgoText(lastFrameRef.current.get(cam.id), now)}
+                    </span>
+                    <button
+                      className="ghost"
+                      aria-label={`Reconectar ${cam.name}`}
+                      onClick={() => reconnect(cam.id)}
+                    >
+                      ↻ Reconectar
+                    </button>
                   </div>
                 </div>
               );
@@ -363,7 +423,7 @@ export default function Grid() {
             <div className="monitor-main">
               {(() => {
                 const sel = cameras.find((c) => c.id === selectedId) ?? cameras[0];
-                return <CameraVideo id={sel.id} name={sel.name} ptz={sel.ptz_enabled} />;
+                return <CameraVideo name={sel.name} />;
               })()}
             </div>
             <div className="monitor-strip">

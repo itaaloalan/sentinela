@@ -1,46 +1,22 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Camera as CameraIcon,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  Maximize,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
-import { ptzMove, snapshotUrl, streamWsUrl } from "../lib/api";
+import { useEffect, useRef } from "react";
+import { streamWsUrl } from "../lib/api";
 
-const ICON = 20;
-
-// Vídeo ao vivo via WebRTC (web component <video-stream> do go2rtc) com barra
-// de controles própria: áudio, zoom/pan digital, foto, tela cheia e — quando
-// `ptz` — um D-pad de PTZ mecânico (ONVIF) com pressionar-e-segurar.
+// Vídeo ao vivo via WebRTC (web component <video-stream> do go2rtc), sem
+// controles próprios: some, mudo, e reconecta sozinho (video-rtc.js). Tela
+// cheia é o único gesto — duplo clique/toque no vídeo.
 export function CameraVideo({
-  id,
   name,
-  ptz = false,
   onPlaying,
+  onFrame,
 }: {
-  id: number;
   name: string;
-  ptz?: boolean;
   /** chamado quando o vídeo realmente começa a tocar (1º frame). */
   onPlaying?: () => void;
+  /** chamado a cada frame renderizado (usado para "último frame há Xs"). */
+  onFrame?: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; y: number } | null>(null);
-  const tap = useRef<{ x: number; y: number; moved: boolean } | null>(null);
-  const [muted, setMuted] = useState(true);
-  const [talking, setTalking] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [showControls, setShowControls] = useState(false);
 
   useEffect(() => {
     const el = ref.current as unknown as {
@@ -50,42 +26,45 @@ export function CameraVideo({
       visibilityThreshold: number;
       src: string;
     };
-    // falar exige WebRTC (MSE não envia áudio de volta) + microfone no media.
-    el.mode = talking ? "webrtc" : "webrtc,mse";
-    // otimização: mutado (padrão da grade) nem pede áudio — menos banda/CPU
-    // por stream; o áudio só entra quando o usuário ativa o som ou fala.
-    el.media = talking ? "video,audio,microphone" : muted ? "video" : "video,audio";
+    el.mode = "webrtc,mse";
+    // sem áudio: menos banda/CPU por stream — não há controle de som na UI.
+    el.media = "video";
     el.background = false;
     // desconecta sozinho quando o card sai da viewport (IntersectionObserver
     // nativo do componente) e quando a aba fica oculta (visibilityCheck).
     el.visibilityThreshold = 0.05;
     el.src = streamWsUrl(name);
-  }, [name, talking, muted]);
-
-  useEffect(() => {
-    // React 18 não converte className→class em custom elements; aplica direto.
-    (ref.current as HTMLElement).classList.toggle("zoomed", zoom > 1);
-  }, [zoom]);
+  }, [name]);
 
   useEffect(() => {
     // 'playing' não borbulha, mas a fase de captura passa pelo wrapper —
     // assim sabemos quando o <video> interno (criado pelo componente) tocou.
-    if (!onPlaying) return;
+    // Aproveitamos o mesmo evento pra configurar o <video>: só existe a
+    // partir daqui (é criado pelo web component), então é aqui — não num
+    // efeito à parte — que dá pra travar mudo/playsInline/sem controles
+    // nativos (o botão de play nativo aparecia no mobile).
     const wrap = wrapRef.current as HTMLDivElement;
-    const handler = () => onPlaying();
+    const handler = (e: Event) => {
+      const video = e.target as HTMLVideoElement;
+      video.muted = true;
+      video.playsInline = true;
+      video.autoplay = true;
+      video.controls = false;
+      onPlaying?.();
+    };
     wrap.addEventListener("playing", handler, true);
     return () => wrap.removeEventListener("playing", handler, true);
   }, [onPlaying]);
 
   useEffect(() => {
-    const video = (ref.current as HTMLElement).querySelector("video") as HTMLVideoElement | null;
-    if (!video) return;
-    video.muted = muted;
-    // toca sempre, sem controles/play nativo (o play aparecia no mobile).
-    video.playsInline = true;
-    video.autoplay = true;
-    video.controls = false;
-  }, [muted]);
+    // 'timeupdate' dispara a cada frame renderizado — usado para o "último
+    // frame há Xs" do card, sem precisar reimplementar o player.
+    if (!onFrame) return;
+    const wrap = wrapRef.current as HTMLDivElement;
+    const handler = () => onFrame();
+    wrap.addEventListener("timeupdate", handler, true);
+    return () => wrap.removeEventListener("timeupdate", handler, true);
+  }, [onFrame]);
 
   function toggleFullscreen() {
     if (document.fullscreenElement) {
@@ -95,102 +74,10 @@ export function CameraVideo({
     }
   }
 
-  function snapshot() {
-    const a = document.createElement("a");
-    a.href = snapshotUrl(id);
-    a.download = `${name}.jpg`;
-    a.click();
-  }
-
-  function zoomBy(delta: number) {
-    setZoom((z) => {
-      const next = Math.min(4, Math.max(1, z + delta));
-      if (next === 1) setPan({ x: 0, y: 0 });
-      return next;
-    });
-  }
-
-  function onPointerDown(e: React.PointerEvent) {
-    tap.current = { x: e.clientX, y: e.clientY, moved: false };
-    if (zoom > 1) drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    // distingue toque (mostra/esconde controles) de arrasto/scroll
-    if (
-      tap.current &&
-      (Math.abs(e.clientX - tap.current.x) > 8 || Math.abs(e.clientY - tap.current.y) > 8)
-    ) {
-      tap.current.moved = true;
-    }
-    if (drag.current)
-      setPan({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y });
-  }
-  function onPointerUp() {
-    drag.current = null;
-    // toque simples no vídeo alterna os controles (mobile não tem hover)
-    if (tap.current && !tap.current.moved) setShowControls((s) => !s);
-    tap.current = null;
-  }
-
-  // PTZ mecânico: pressiona pra mover, solta pra parar.
-  function ptzHold(pan: number, tilt: number, zoom: number) {
-    return {
-      onPointerDown: () => ptzMove(id, pan, tilt, zoom),
-      onPointerUp: () => ptzMove(id, 0, 0, 0),
-    };
-  }
-
   return (
-    <div className={`cam-video-wrap${showControls ? " controls-on" : ""}`} ref={wrapRef}>
+    <div className="cam-video-wrap" ref={wrapRef} onDoubleClick={toggleFullscreen}>
       <div className="cam-loading" aria-hidden="true">🔄 conectando…</div>
-      <video-stream
-        ref={ref}
-        className="cam-video"
-        style={{ transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)` }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-      />
-      <div className="cam-controls">
-        <button
-          type="button"
-          onClick={() => setMuted((m) => !m)}
-          aria-label={muted ? "Ativar som" : "Mutar"}
-        >
-          {muted ? <VolumeX size={ICON} /> : <Volume2 size={ICON} />}
-        </button>
-        <button type="button" onClick={() => zoomBy(0.5)} aria-label="Aproximar">
-          <ZoomIn size={ICON} />
-        </button>
-        <button type="button" onClick={() => zoomBy(-0.5)} aria-label="Afastar">
-          <ZoomOut size={ICON} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setTalking((t) => !t)}
-          aria-label={talking ? "Parar de falar" : "Falar"}
-        >
-          {talking ? <MicOff size={ICON} /> : <Mic size={ICON} />}
-        </button>
-        <button type="button" onClick={snapshot} aria-label="Tirar foto">
-          <CameraIcon size={ICON} />
-        </button>
-        <button type="button" onClick={toggleFullscreen} aria-label="Tela cheia">
-          <Maximize size={ICON} />
-        </button>
-      </div>
-      {ptz && (
-        <div className="ptz-pad">
-          <button type="button" aria-label="Cima" {...ptzHold(0, 0.5, 0)}><ChevronUp size={ICON} /></button>
-          <div className="ptz-mid">
-            <button type="button" aria-label="Esquerda" {...ptzHold(-0.5, 0, 0)}><ChevronLeft size={ICON} /></button>
-            <button type="button" aria-label="Aproximar lente" {...ptzHold(0, 0, 0.5)}><ZoomIn size={ICON} /></button>
-            <button type="button" aria-label="Afastar lente" {...ptzHold(0, 0, -0.5)}><ZoomOut size={ICON} /></button>
-            <button type="button" aria-label="Direita" {...ptzHold(0.5, 0, 0)}><ChevronRight size={ICON} /></button>
-          </div>
-          <button type="button" aria-label="Baixo" {...ptzHold(0, -0.5, 0)}><ChevronDown size={ICON} /></button>
-        </div>
-      )}
+      <video-stream ref={ref} className="cam-video" />
     </div>
   );
 }

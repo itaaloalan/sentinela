@@ -326,7 +326,6 @@ export default function Training() {
                 <div className="video contain">
                   <CameraVideo
                     key={selected.camera_id}
-                    id={selected.camera_id}
                     name={previewName}
                   />
                 </div>
