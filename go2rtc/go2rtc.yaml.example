@@ -16,6 +16,14 @@ api:
   listen: ":1984"           # API/UI — NÃO expor à internet; o backend faz proxy autenticado
   origin: "*"               # libera o WebSocket de outra origem (frontend via proxy /go2rtc)
 
+# Sobrescreve o template nativo "h264" do transcode (usado por #video=h264
+# abaixo) — o padrão do go2rtc usa -g 50 (GOP ~2s+), que atrasa bastante o
+# primeiro keyframe (delay pra começar a tocar) e deixa mais latência no
+# buffer de MSE/WebRTC. GOP menor + frame rate de saída fixo (evita soluços
+# de câmeras que mandam frames em intervalos irregulares).
+ffmpeg:
+  h264: "-c:v libx264 -g 20 -r 15 -profile:v high -level:v 4.1 -preset:v superfast -tune:v zerolatency -pix_fmt:v yuv420p"
+
 rtsp:
   listen: ":8554"           # RTSP re-publicado (consumido pelo serviço de IA)
 
@@ -39,6 +47,12 @@ streams:
   #                      "Nonmatching transport" (ffprobe) / SETUP 500
   #   #video=h264      → transcodifica H.265 -> H.264 em tempo real
   # Sem os dois, o card fica preso em "Conectando" com erro de codec na tela.
+  #
+  # ⚠️ Cada câmera física só pode ter UMA entrada de stream. Duas entradas
+  # apontando pro mesmo IP (nomes diferentes) disputam a única conexão RTSP
+  # que a câmera aceita, e os dois streams corrompem ("Invalid data found
+  # when processing input"). Delete entradas antigas/renomeadas com
+  # DELETE /api/streams?src=<nome> (o go2rtc reescreve o arquivo sozinho).
   portao:                   # 192.168.0.12 — câmera do PORTÃO (alvo da IA)
     - ffmpeg:rtsp://admin:${CAM_YOOSEE_PASS}@192.168.0.12:554/onvif1#input=rtsp/udp#video=h264
   yoosee_2:                 # 192.168.0.15
@@ -54,6 +68,7 @@ streams:
     - ffmpeg:rtsp://${CAM_ICSEE_USER}:${CAM_ICSEE_PASS}@192.168.0.66:554?channel=0&subtype=0#input=rtsp/udp#video=h264
 
 # Dica: I-frame interval da câmera = framerate → start mais rápido do WebRTC.
-# Transcode H.265->H.264 via ffmpeg é pesado de CPU com várias câmeras
-# simultâneas — considere aceleração por hardware (VAAPI/QSV/NVENC) se o
-# host tiver GPU, ou usar a stream /onvif2 (sub, mais leve) na grade.
+# Cold start (nenhum consumer ativo há um tempo) custa uns 5-13s pra
+# reconectar na câmera + iniciar o ffmpeg — o poll de frame.jpeg da IA a
+# cada AI_FRAME_INTERVAL_SECONDS mantém o producer "aquecido" e evita isso
+# na prática; sem a IA rodando, o primeiro acesso do dia é mais lento.
