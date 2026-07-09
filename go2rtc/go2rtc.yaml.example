@@ -21,23 +21,39 @@ rtsp:
 
 webrtc:
   listen: ":8555"           # WebRTC (TCP)
+  # host network mode enxerga TODAS as interfaces do host (bridges do Docker,
+  # VPN tipo Tailscale) e ofereceria cada uma como candidato ICE — isso já
+  # quebrou a negociação WebRTC aqui. Se acontecer com você, fixe o candidato
+  # só na LAN (troque pelo IP local da sua máquina):
+  # candidates:
+  #   - 192.168.0.2:8555
 
 streams:
   # --- Yoosee (Bilian) — RTSP, usuário "admin", senha ${CAM_YOOSEE_PASS}.
   # Validado: H.265/HEVC + áudio. /onvif1 = main, /onvif2 = sub (mais leve).
-  # H.265 não toca em WebRTC na maioria dos browsers → go2rtc transcoda p/ H.264.
-  # Se falhar com "Nonmatching transport", use: ffmpeg:rtsp://...onvif1#input=rtsp/udp
+  #
+  # ⚠️ H.265 não toca em NENHUM navegador comum (nem WebRTC nem MSE) — o
+  # go2rtc NÃO transcoda sozinho "sob demanda", isso não é automático. É
+  # preciso forçar via prefixo ffmpeg: na URL, com:
+  #   #input=rtsp/udp  → RTSP puro em TCP falha nessas câmeras com
+  #                      "Nonmatching transport" (ffprobe) / SETUP 500
+  #   #video=h264      → transcodifica H.265 -> H.264 em tempo real
+  # Sem os dois, o card fica preso em "Conectando" com erro de codec na tela.
   portao:                   # 192.168.0.12 — câmera do PORTÃO (alvo da IA)
-    - rtsp://admin:${CAM_YOOSEE_PASS}@192.168.0.12:554/onvif1
+    - ffmpeg:rtsp://admin:${CAM_YOOSEE_PASS}@192.168.0.12:554/onvif1#input=rtsp/udp#video=h264
   yoosee_2:                 # 192.168.0.15
-    - rtsp://admin:${CAM_YOOSEE_PASS}@192.168.0.15:554/onvif1
+    - ffmpeg:rtsp://admin:${CAM_YOOSEE_PASS}@192.168.0.15:554/onvif1#input=rtsp/udp#video=h264
   yoosee_3:                 # 192.168.0.18
-    - rtsp://admin:${CAM_YOOSEE_PASS}@192.168.0.18:554/onvif1
+    - ffmpeg:rtsp://admin:${CAM_YOOSEE_PASS}@192.168.0.18:554/onvif1#input=rtsp/udp#video=h264
 
   # --- iCSee (Xiongmai / AltoBeam) — RTSP confirmado (porta 554, formato Xiongmai).
+  # Também é H.265 — mesmo transcode explícito acima.
   # Alternativa robusta com RTSP off: dvrip na 34567 →
   #   dvrip://${CAM_ICSEE_USER}:${CAM_ICSEE_PASS}@192.168.0.66:34567?channel=0&subtype=0
   icsee:                    # 192.168.0.66
-    - rtsp://${CAM_ICSEE_USER}:${CAM_ICSEE_PASS}@192.168.0.66:554?channel=0&subtype=0
+    - ffmpeg:rtsp://${CAM_ICSEE_USER}:${CAM_ICSEE_PASS}@192.168.0.66:554?channel=0&subtype=0#input=rtsp/udp#video=h264
 
 # Dica: I-frame interval da câmera = framerate → start mais rápido do WebRTC.
+# Transcode H.265->H.264 via ffmpeg é pesado de CPU com várias câmeras
+# simultâneas — considere aceleração por hardware (VAAPI/QSV/NVENC) se o
+# host tiver GPU, ou usar a stream /onvif2 (sub, mais leve) na grade.
